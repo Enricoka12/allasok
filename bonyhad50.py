@@ -4,7 +4,6 @@ import json
 import csv
 import time
 import random
-import os
 from supabase import create_client, Client
 import smtplib
 from email.mime.text import MIMEText
