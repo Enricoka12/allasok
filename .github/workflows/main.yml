@@ -36,44 +36,65 @@ jobs:
 
       - name: Run scripts in order
         run: |
+          echo "újpest elinditva"
           python allasok.py újpest 25 || echo "újpest hibára futott"
           sleep 12
+          echo "kispest elinditva"
           python allasok.py kispest 25 || echo "kispest hibára futott"
           sleep 12
+          echo "budaörs elinditva"
           python allasok.py budaörs 10 || echo "budaörs hibára futott"
           sleep 12
+          echo "gödöllő elinditva"
           python allasok.py gödöllő 25 || echo "gödöllő hibára futott"
           sleep 12
+          echo "cegléd elinditva"
           python allasok.py cegléd || echo "cegléd hibára futott"
           sleep 12
+          echo "győr elinditva"
           python allasok.py győr || echo "győr hibára futott"
           sleep 12
+          echo "sopron elinditva"
           python allasok.py sopron || echo "sopron hibára futott"
           sleep 12
+          echo "zalaegerszeg elinditva"
           python allasok.py zalaegerszeg 25 || echo "zalaegerszeg hibára futott"
           sleep 12
+          echo "szombathely elinditva"
           python allasok.py szombathely 25 || echo "szombathely hibára futott"
           sleep 12
+          echo "kaposvár elinditva"
           python allasok.py kaposvár || echo "kaposvár hibára futott"
           sleep 12
+          echo "pécs elinditva"
           python allasok.py pécs || echo "pécs hibára futott"
           sleep 12
+          echo "szekszárd elinditva"
           python allasok.py szekszárd || echo "szekszárd hibára futott"
           sleep 12
+          echo "kecskemét elinditva"
           python allasok.py kecskemét || echo "kecskemét hibára futott"
           sleep 12
+          echo "szeged elinditva"
           python allasok.py szeged || echo "szeged hibára futott"
           sleep 12
+          echo "békéscsaba elinditva"
           python allasok.py békéscsaba || echo "békéscsaba hibára futott"
           sleep 12
+          echo "miskolc elinditva"
           python allasok.py miskolc || echo "miskolc hibára futott"
           sleep 12
+          echo "nyíregyháza elinditva"
           python allasok.py nyíregyháza || echo "nyíregyháza hibára futott"
           sleep 12
+          echo "debrecen elinditva"
           python allasok.py debrecen || echo "debrecen hibára futott"
           sleep 12
+          echo "eger elinditva"
           python allasok.py eger || echo "eger hibára futott"
           sleep 12
+          echo "szolnok elinditva"
           python allasok.py szolnok || echo "szolnok hibára futott"
           sleep 12
+          echo "salgótarján elinditva"
           python allasok.py salgótarján || echo "salgótarján hibára futott"
