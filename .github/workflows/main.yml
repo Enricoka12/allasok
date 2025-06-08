@@ -23,7 +23,6 @@ jobs:
 
       - name: Run scripts in order
         run: |
-           run: |
           python allasok.py újpest 25 || echo "újpest hibára futott"
           sleep 12
           python allasok.py kispest 25 || echo "kispest hibára futott"
