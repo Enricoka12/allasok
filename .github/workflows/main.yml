@@ -10,7 +10,6 @@
             TABLE_NAME: ${{ secrets.TABLE_NAME }}
             LOGIN_URL: ${{ secrets.LOGIN_URL }}
             SEARCH_URL: ${{ secrets.SEARCH_URL }}
-        shell: bash  # <-- EZZEL mondod meg, hogy Bash shellt használjon
         run: |
           városok=(
             "újpest 25"
@@ -41,3 +40,4 @@
             timeout 1800 python allasok.py $sor || echo "$sor hibára futott"
             sleep 12
           done
+        shell: bash  # ← FONTOS: ezt ide, közvetlenül a `run:` alá írd
