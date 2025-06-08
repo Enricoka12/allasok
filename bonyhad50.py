@@ -13,7 +13,7 @@ from email.mime.multipart import MIMEMultipart
 
 # Konfigurációk
 USERNAME = "borose"
-PASSWORD = s"Enricoka1"
+PASSWORD = "Enricoka1"
 
 EMAIL_SENDER = "kettohallo@gmail.com"
 EMAIL_PASSWORD = "ebrx abyh lbgd swlx"
