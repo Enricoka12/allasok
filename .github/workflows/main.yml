@@ -34,21 +34,24 @@ jobs:
             LOGIN_URL: ${{ secrets.LOGIN_URL }}
             SEARCH_URL: ${{ secrets.SEARCH_URL }}
         run: |
-         python allasok.py újpest 25
-         python allasok.py kispest 25
-         python allasok.py budaörs 25
-          python allasok.py gödöllő 25
-          python allasok.py cegléd 25
-          python allasok.py győr
-          python allasok.py sopron
-          python allasok.py zalaegerszeg
-          python allasok.py szombathely
-          python allasok.py kaposvár
-          python allasok.py pécs
-          python allasok.py szekszárd
-          python allasok.py kecskemét
-          python allasok.py szeged
-          python allasok.py békéscsaba
-          python allasok.py miskolc
-          python allasok.py nyíregyháza
-          python allasok.py debrecen
+         python allasok.py újpest 25 || echo "újpest hibara futott"
+         python allasok.py kispest 25 || echo "kispest hibara futott"
+         python allasok.py budaörs 10 || echo "budaörs hibara futott"
+          python allasok.py gödöllő 25 || echo "gödöllő hibara futott"
+          python allasok.py cegléd || echo "cegléd hibara futott"
+          python allasok.py győr || echo "győr hibara futott"
+          python allasok.py sopron || echo "sopron hibara futott"
+          python allasok.py zalaegerszeg 25 || echo "zalaegerszeg hibara futott"
+          python allasok.py szombathely 25 || echo "szombathely hibara futott"
+          python allasok.py kaposvár || echo "kaposvár hibara futott"
+          python allasok.py pécs || echo "pécs hibara futott"
+          python allasok.py szekszárd || echo "szekszárd hibara futott"
+          python allasok.py kecskemét || echo "kecskemét hibara futott"
+          python allasok.py szeged || echo "szeged hibara futott"
+          python allasok.py békéscsaba || echo "békéscsaba hibara futott"
+          python allasok.py miskolc || echo "miskolc hibara futott"
+          python allasok.py nyíregyháza || echo "nyíregyháza hibara futott"
+          python allasok.py debrecen || echo "debrecen hibara futott"
+          python allasok.py eger || echo "eger hibara futott"
+          python allasok.py szolnok || echo "szolnok hibara futott"
+          python allasok.py salgótarján || echo "salgótarján hibara futott"
