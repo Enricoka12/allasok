@@ -9,6 +9,15 @@ jobs:
   run-scripts:
     runs-on: ubuntu-latest
 
+    
+    env:  # <- Itt töltjük be a .env változókat GitHub Secrets-ből
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      EMAIL_USER: ${{ secrets.EMAIL_USER }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+
     steps:
       - uses: actions/checkout@v3
 
