@@ -72,6 +72,42 @@ def supabase_kapcsolat():
         print(f"❌ Supabase kapcsolat hiba: {e}")
         return None
 
+# ÚJ: Aktuális keresés alapján DB-ben lévő állások lekérése
+def db_allasok_lekerese(supabase, keresesi_link):
+    if not supabase:
+        return []
+    try:
+        result = supabase.table(TABLE_NAME).select("link, id").eq("keresesi_link", keresesi_link).eq("active", True).execute()
+        return {allas["link"]: allas["id"] for allas in result.data}
+    except Exception as e:
+        print(f"❌ DB állások lekérése hiba: {e}")
+        return {}
+
+# ÚJ: Nem elérhető állások inaktiválása
+def inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek):
+    if not supabase:
+        return 0
+    try:
+        # DB-ben lévő linkek lekérése
+        db_linkek = db_allasok_lekerese(supabase, keresesi_link)
+        
+        # Inaktiválandó linkek megkeresése (DB-ben van, de scrappelt listában nincs)
+        inaktivalando_linkek = [link for link in db_linkek.keys() if link not in scrapped_linkek]
+        
+        if inaktivalando_linkek:
+            # Inaktiválás
+            for link in inaktivalando_linkek:
+                supabase.table(TABLE_NAME).update({"active": False}).eq("link", link).execute()
+            
+            print(f"✅ {len(inaktivalando_linkek)} állás inaktiválva (már nem elérhető)")
+            return len(inaktivalando_linkek)
+        else:
+            print("✅ Nincs inaktiválandó állás")
+            return 0
+    except Exception as e:
+        print(f"❌ Inaktiválás hiba: {e}")
+        return 0
+
 # Állásadatok konvertálása
 def allas_adatok_konvertalasa(allas):
     return {
@@ -91,18 +127,16 @@ def allas_adatok_konvertalasa(allas):
         "megjegyzes": allas.get("Megjegyzés"),
         "email": allas.get("Email"),
         # Új mezők
-        "teljes_resz_munkaido_ora": None,
-        "munkaido_kezdete": None,
-        "munkarend": None,
-        "eu_allampolgar_javaslat": None,
-        "attelepules_kovetelmeny": None,
-        "speciális_követelmények": None,
-        "speciális_körülmények": None,
-        "a_munkakorhoz_kapcsolodo_juttatasok": None,
-        "allas_egyeztes_helye": None,
-        "allas_egyeztetes_ideje": None
-        # stb.
-        ,
+        "teljes_resz_munkaido_ora": allas.get("teljes_resz_munkaido_ora"),
+        "munkaido_kezdete": allas.get("munkaido_kezdete"),
+        "munkarend": allas.get("munkarend"),
+        "eu_allampolgar_javaslat": allas.get("eu_allampolgar_javaslat"),
+        "attelepules_kovetelmeny": allas.get("attelepules_kovetelmeny"),
+        "speciális_követelmények": allas.get("speciális_követelmények"),
+        "speciális_körülmények": allas.get("speciális_körülmények"),
+        "a_munkakorhoz_kapcsolodo_juttatasok": allas.get("a_munkakorhoz_kapcsolodo_juttatasok"),
+        "allas_egyeztes_helye": allas.get("allas_egyeztes_helye"),
+        "allas_egyeztetes_ideje": allas.get("allas_egyeztetes_ideje"),
         "active": True
     }
 
@@ -185,7 +219,7 @@ def get_allasok_egy_oldalrol(session, oldal_szam):
     return results, van_kovetkezo
 
 def get_job_details(session, allas):
-    print("Részletes adatok után:", allas)
+    print(f"Részletes adatok után: {allas['Munka neve']}")
     headers = {"User-Agent": random.choice(USER_AGENTS)}
     resp = session.get(allas["Link"], headers=headers)
     if not resp.ok:
@@ -269,14 +303,6 @@ def get_job_details(session, allas):
 
     return allas
 
-
- 
-
-
-
-
-
-
 # create_search_url ugyanaz marad
 def create_search_url():
     return f"https://vmp.munka.hu/allas/talalatok?kulcsszo=&kategoria=&isk=&oszk=&feor=&helyseg={LOCATION}&tavolsag={DISTANCE}&munkaido=3&attelepules=&kereses=Keresés"
@@ -288,11 +314,20 @@ def main():
         print("❌ Nem sikerült bejelentkezni")
         return
 
+    # Supabase kapcsolat létrehozása
+    supabase = supabase_kapcsolat()
+    keresesi_link = create_search_url()
+    
+    # DB-ben lévő állások lekérése
+    db_allasok = db_allasok_lekerese(supabase, keresesi_link) if supabase else {}
+    print(f"📊 DB-ben jelenleg {len(db_allasok)} aktív állás található ehhez a kereséshez")
+
     allasok = []
     oldal_szam = 1
 
+    # Scrapping - összes oldal bejárása
     while True:
-        print(f"Betöltés oldal: {oldal_szam}")
+        print(f"🔍 Betöltés oldal: {oldal_szam}")
         page_allasok, van_kovetkezo = get_allasok_egy_oldalrol(session, oldal_szam)
         if not page_allasok:
             break
@@ -303,23 +338,52 @@ def main():
         else:
             break
 
-    # Részletes adatok gyűjtése
-    for i, allas in enumerate(allasok):
-        print(f"{i+1}/{len(allasok)}: {allas['Munka neve']}")
+    print(f"📋 Összesen {len(allasok)} állás találva a scrapping során")
+
+    # Új és meglévő állások szétválasztása
+    uj_allasok = []
+    scrapped_linkek = set()
+    
+    for allas in allasok:
+        scrapped_linkek.add(allas["Link"])
+        if allas["Link"] not in db_allasok:
+            uj_allasok.append(allas)
+
+    print(f"🆕 {len(uj_allasok)} új állás található")
+    print(f"♻️ {len(allasok) - len(uj_allasok)} állás már megtalálható a DB-ben")
+
+    # Inaktívvá tett állások kezelése
+    inaktivalt_szam = inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek)
+
+    # Csak az új állások részletes adatainak lekérése
+    for i, allas in enumerate(uj_allasok):
+        print(f"📖 {i+1}/{len(uj_allasok)}: {allas['Munka neve']} - részletes adatok letöltése...")
         detail = get_job_details(session, allas)
         allas.update(detail)
         time.sleep(random.uniform(12, 16))
-        
-  
 
-    # Feltöltés a DB-be
-    supabase = supabase_kapcsolat()
-    if supabase:
-        print("Feltöltés a DB-be...")
-        allasok_feltoltese_supabase(supabase, allasok)
+    # Feltöltés a DB-be (csak új állások)
+    if supabase and uj_allasok:
+        print("💾 Új állások feltöltése a DB-be...")
+        allasok_feltoltese_supabase(supabase, uj_allasok)
 
     # E-mail összegzés
-    send_email("VMP álláskereső eredmény", f"{len(allasok)} állást gyűjtöttünk össze.")
+    email_uzenet = f"""
+    VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km távolságban)
+    
+    📊 ÖSSZEGZÉS:
+    • Összesen találat: {len(allasok)} állás
+    • Új állások: {len(uj_allasok)} db
+    • Meglévő állások: {len(allasok) - len(uj_allasok)} db
+    • Már nem elérhető állások: {inaktivalt_szam} db
+    
+    🔍 Keresési URL: {keresesi_link}
+    
+    {'🎉 Vannak új álláslehetőségek!' if uj_allasok else '📋 Nincsenek új állások a keresési területen.'}
+    """
+    
+    email_subject = f"VMP álláskeresés - {len(uj_allasok)} új állás - {LOCATION}"
+    send_email(email_subject, email_uzenet)
 
 if __name__ == "__main__":
     main()
