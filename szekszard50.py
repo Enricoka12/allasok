@@ -5,17 +5,16 @@ import csv
 import time
 import random
 import os
-from dotenv import load_dotenv
 from supabase import create_client, Client
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-load_dotenv()
+
 
 # Konfigurációk
-USERNAME = os.getenv("USERNAME") or "borose"
-PASSWORD = os.getenv("PASSWORD") or "Enricoka1"
+USERNAME = "borose"
+PASSWORD = "Enricoka1"
 
 EMAIL_SENDER = "kettohallo@gmail.com"
 EMAIL_PASSWORD = "ebrx abyh lbgd swlx"
