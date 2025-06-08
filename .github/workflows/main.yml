@@ -10,17 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     
-env:
-    USERNAME: ${{ secrets.USERNAME }}
-    PASSWORD: ${{ secrets.PASSWORD }}
-    EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-    EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-    EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-    SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-    TABLE_NAME: ${{ secrets.TABLE_NAME }}
-    LOGIN_URL: ${{ secrets.LOGIN_URL }}
-    SEARCH_URL: ${{ secrets.SEARCH_URL }}
+    env:
+        USERNAME: ${{ secrets.USERNAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        TABLE_NAME: ${{ secrets.TABLE_NAME }}
+        LOGIN_URL: ${{ secrets.LOGIN_URL }}
+        SEARCH_URL: ${{ secrets.SEARCH_URL }}
 
     steps:
       - uses: actions/checkout@v3
