@@ -1,43 +1,68 @@
-      - name: Run scripts in order
-        env:
-            USERNAME: ${{ secrets.USERNAME }}
-            PASSWORD: ${{ secrets.PASSWORD }}
-            EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-            EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-            EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-            SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-            TABLE_NAME: ${{ secrets.TABLE_NAME }}
-            LOGIN_URL: ${{ secrets.LOGIN_URL }}
-            SEARCH_URL: ${{ secrets.SEARCH_URL }}
-        run: |
-          városok=(
-            "újpest 25"
-            "kispest 25"
-            "budaörs 10"
-            "gödöllő 25"
-            "cegléd"
-            "győr"
-            "sopron"
-            "zalaegerszeg 25"
-            "szombathely 25"
-            "kaposvár"
-            "pécs"
-            "szekszárd"
-            "kecskemét"
-            "szeged"
-            "békéscsaba"
-            "miskolc"
-            "nyíregyháza"
-            "debrecen"
-            "eger"
-            "szolnok"
-            "salgótarján"
-          )
+name: Napi script futtatás
 
-          for sor in "${városok[@]}"; do
-            echo "Indul: $sor"
-            timeout 1800 python allasok.py $sor || echo "$sor hibára futott"
-            sleep 12
-          done
-        shell: bash  # ← FONTOS: ezt ide, közvetlenül a `run:` alá írd
+on:
+  schedule:
+    - cron: '0 11 * * *'  # 13:00 magyar idő szerint (11:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install beautifulsoup4 requests supabase
+
+      - name: Run scripts in order
+        run: |
+           run: |
+          python allasok.py újpest 25 || echo "újpest hibára futott"
+          sleep 12
+          python allasok.py kispest 25 || echo "kispest hibára futott"
+          sleep 12
+          python allasok.py budaörs 10 || echo "budaörs hibára futott"
+          sleep 12
+          python allasok.py gödöllő 25 || echo "gödöllő hibára futott"
+          sleep 12
+          python allasok.py cegléd || echo "cegléd hibára futott"
+          sleep 12
+          python allasok.py győr || echo "győr hibára futott"
+          sleep 12
+          python allasok.py sopron || echo "sopron hibára futott"
+          sleep 12
+          python allasok.py zalaegerszeg 25 || echo "zalaegerszeg hibára futott"
+          sleep 12
+          python allasok.py szombathely 25 || echo "szombathely hibára futott"
+          sleep 12
+          python allasok.py kaposvár || echo "kaposvár hibára futott"
+          sleep 12
+          python allasok.py pécs || echo "pécs hibára futott"
+          sleep 12
+          python allasok.py szekszárd || echo "szekszárd hibára futott"
+          sleep 12
+          python allasok.py kecskemét || echo "kecskemét hibára futott"
+          sleep 12
+          python allasok.py szeged || echo "szeged hibára futott"
+          sleep 12
+          python allasok.py békéscsaba || echo "békéscsaba hibára futott"
+          sleep 12
+          python allasok.py miskolc || echo "miskolc hibára futott"
+          sleep 12
+          python allasok.py nyíregyháza || echo "nyíregyháza hibára futott"
+          sleep 12
+          python allasok.py debrecen || echo "debrecen hibára futott"
+          sleep 12
+          python allasok.py eger || echo "eger hibára futott"
+          sleep 12
+          python allasok.py szolnok || echo "szolnok hibára futott"
+          sleep 12
+          python allasok.py salgótarján || echo "salgótarján hibára futott"
+
