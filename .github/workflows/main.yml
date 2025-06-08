@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install beautifulsoup4 requests supabase
+              pip install beautifulsoup4 requests python-dotenv supabasee
 
       - name: Run scripts in order
         run: |
