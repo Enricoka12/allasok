@@ -21,7 +21,8 @@ jobs:
         TABLE_NAME: ${{ secrets.TABLE_NAME }}
         LOGIN_URL: ${{ secrets.LOGIN_URL }}
         SEARCH_URL: ${{ secrets.SEARCH_URL }}
-
+        TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
+        TYPESENSE_API_KEY: ${{ secrets.TYPESENSE_API_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -98,3 +99,7 @@ jobs:
           sleep 12
           echo "salgótarján elinditva"
           timeout 1800 python allasok.py salgótarján || echo "salgótarján hibára futott"
+          sleep 12
+          echo "typesense szinkron elinditva"
+          timeout 1800 python szinkron.py  || echo "szinkronizalas hibára futott"
+
