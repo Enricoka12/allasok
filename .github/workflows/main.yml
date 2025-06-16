@@ -33,7 +33,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install beautifulsoup4 requests supabase
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4 requests supabase python-dotenv typesense aiohttp
+          pip install pandas numpy  # Opcionális, ha szükséges
 
       - name: Run scripts in order
         run: |
