@@ -59,17 +59,7 @@ def normalize_place_name(place_name: Optional[str]) -> str:
     return normalized
 
 
-def transform_salary(salary: Optional[str]) -> int:
-    """Bruttó kereset átalakítása számra"""
-    if not salary:
-        return 0
-    
-    try:
-        # Eltávolítjuk a nem szám karaktereket
-        clean_value = ''.join(c for c in str(salary) if c.isdigit())
-        return int(clean_value) if clean_value else 0
-    except (ValueError, TypeError):
-        return 0
+
 
 
 async def sync_data():
@@ -117,7 +107,7 @@ async def sync_data():
                 'hely': allas.get('hely', ''),
                 'ceg': allas.get('ceg', ''),
                 'kepviselo_elerhetosegei': allas.get('kepviselo_elerhetosegei', ''),
-                'felajanlott_havi_brutto_kereset': transform_salary(allas.get('felajanlott_havi_brutto_kereset')),
+                'felajanlott_havi_brutto_kereset': allas.get('felajanlott_havi_brutto_kereset'),
                 'munkavegzes_helye': allas.get('munkavegzes_helye', ''),
                 'megjegyzes': allas.get('megjegyzes', ''),
                 'email': allas.get('email', ''),
@@ -151,7 +141,7 @@ async def sync_data():
                 {'name': 'hely', 'type': 'string'},
                 {'name': 'ceg', 'type': 'string'},
                 {'name': 'kepviselo_elerhetosegei', 'type': 'string', 'optional': True},
-                {'name': 'felajanlott_havi_brutto_kereset', 'type': 'int32', 'optional': True},
+                {'name': 'felajanlott_havi_brutto_kereset', 'type': 'string', 'optional': True},
                 {'name': 'munkavegzes_helye', 'type': 'string', 'optional': True},
                 {'name': 'megjegyzes', 'type': 'string', 'optional': True},
                 {'name': 'email', 'type': 'string', 'optional': True},
