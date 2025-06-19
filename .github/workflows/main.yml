@@ -2,7 +2,7 @@ name: Napi script futtatás
 
 on:
   schedule:
-    - cron: '0 11 * * *'  # 13:00 magyar idő szerint (11:00 UTC)
+    - cron: '0 13 * * *'  # 13:00 magyar idő szerint (11:00 UTC)
   workflow_dispatch:
 
 jobs:
