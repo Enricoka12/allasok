@@ -39,69 +39,63 @@ jobs:
 
       - name: Run scripts in order
         run: |
-          echo "újpest elinditva"
-          timeout 1800 python allasok.py újpest 25 || echo "újpest hibára futott"
-          sleep 12
-          echo "kispest elinditva"
-          timeout 1800 python allasok.py kispest 25 || echo "kispest hibára futott"
-          sleep 12
-          echo "budaörs elinditva"
-          timeout 1800 python allasok.py budaörs 10 || echo "budaörs hibára futott"
-          sleep 12
-          echo "gödöllő elinditva"
-          timeout 1800 python allasok.py gödöllő 25 || echo "gödöllő hibára futott"
-          sleep 12
-          echo "cegléd elinditva"
-          timeout 1800 python allasok.py cegléd || echo "cegléd hibára futott"
-          sleep 12
-          echo "győr elinditva"
-          timeout 1800 python allasok.py győr || echo "győr hibára futott"
-          sleep 12
-          echo "sopron elinditva"
-          timeout 1800 python allasok.py sopron || echo "sopron hibára futott"
-          sleep 12
-          echo "zalaegerszeg elinditva"
-          timeout 1800 python allasok.py zalaegerszeg 25 || echo "zalaegerszeg hibára futott"
-          sleep 12
-          echo "szombathely elinditva"
-          timeout 1800 python allasok.py szombathely 25 || echo "szombathely hibára futott"
-          sleep 12
-          echo "kaposvár elinditva"
-          timeout 1800 python allasok.py kaposvár || echo "kaposvár hibára futott"
-          sleep 12
-          echo "pécs elinditva"
-          timeout 1800 python allasok.py pécs || echo "pécs hibára futott"
-          sleep 12
-          echo "szekszárd elinditva"
-          timeout 1800 python allasok.py szekszárd || echo "szekszárd hibára futott"
-          sleep 12
-          echo "kecskemét elinditva"
-          timeout 1800 python allasok.py kecskemét || echo "kecskemét hibára futott"
-          sleep 12
-          echo "szeged elinditva"
-          timeout 1800 python allasok.py szeged || echo "szeged hibára futott"
-          sleep 12
-          echo "békéscsaba elinditva"
-          timeout 1800 python allasok.py békéscsaba || echo "békéscsaba hibára futott"
-          sleep 12
-          echo "miskolc elinditva"
-          timeout 1800 python allasok.py miskolc || echo "miskolc hibára futott"
-          sleep 12
-          echo "nyíregyháza elinditva"
-          timeout 1800 python allasok.py nyíregyháza || echo "nyíregyháza hibára futott"
-          sleep 12
-          echo "debrecen elinditva"
-          timeout 1800 python allasok.py debrecen || echo "debrecen hibára futott"
-          sleep 12
-          echo "eger elinditva"
-          timeout 1800 python allasok.py eger || echo "eger hibára futott"
-          sleep 12
-          echo "szolnok elinditva"
-          timeout 1800 python allasok.py szolnok || echo "szolnok hibára futott"
-          sleep 12
-          echo "salgótarján elinditva"
-          timeout 1800 python allasok.py salgótarján || echo "salgótarján hibára futott"
-          sleep 12
+          echo "Bács-Kiskun elinditva"
+          timeout 1800 python allasok.py Bács-Kiskun megye|| echo "Bács-Kiskun hibára futott"
+          sleep 20
+          echo "Baranya elinditva"
+          timeout 1800 python allasok.py Baranya megye || echo "Baranya hibára futott"
+          sleep 20
+          echo "Borsod-Abaúj-Zemplén  elinditva"
+          timeout 1800 python allasok.py Borsod-Abaúj-Zemplén megye || echo "Borsod-Abaúj-Zemplén hibára futott"
+          sleep 20
+          echo "Békés elinditva"
+          timeout 1800 python allasok.py Békés megye || echo "Békés hibára futott"
+          sleep 20
+          echo "Csongrád megye elinditva"
+          timeout 1800 python allasok.py Csongrád megye || echo "Csongrád hibára futott"
+          sleep 20
+          echo "Fejér elinditva"
+          timeout 1800 python allasok.py Fejér megye || echo "Fejér hibára futott"
+          sleep 20
+          echo "Győr-Moson-Sopron  elinditva"
+          timeout 1800 python allasok.py Győr-Moson-Sopron megye || echo "Győr-Moson-Sopron  hibára futott"
+          sleep 20
+          echo "Hajdú-Bihar vármegye elinditva"
+          timeout 1800 python allasok.py Hajdú-Bihar megye || echo "Hajdú-Bihar vármegye hibára futott"
+          sleep 20
+          echo "Heves elinditva"
+          timeout 1800 python allasok.py Heves megye || echo "Heves hibára futott"
+          sleep 20
+          echo "Jász-Nagykun-Szolnok elinditva"
+          timeout 1800 python allasok.py Jász-Nagykun-Szolnok megye || echo "Jász-Nagykun-Szolnok hibára futott"
+          sleep 20
+          echo "Komárom-Esztergom elinditva"
+          timeout 1800 python allasok.py Komárom-Esztergom megye || echo "Komárom-Esztergom hibára futott"
+          sleep 20
+          echo "Nógrád elinditva"
+          timeout 1800 python allasok.py Nógrád megye || echo "Nógrád hibára futott"
+          sleep 20
+          echo "Pest megye elinditva"
+          timeout 1800 python allasok.py Pest megye|| echo "Pest megye hibára futott"
+          sleep 20
+          echo "Somogy elinditva"
+          timeout 1800 python allasok.py Somogy megye || echo "Somogy hibára futott"
+          sleep 20
+          echo "Szabolcs-Szatmár-Bereg elinditva"
+          timeout 1800 python allasok.py Szabolcs-Szatmár-Bereg megye || echo "Szabolcs-Szatmár-Bereg hibára futott"
+          sleep 20
+          echo "Tolna elinditva"
+          timeout 1800 python allasok.py Tolna megye || echo "Tolna megye hibára futott"
+          sleep 20
+          echo "Vas elinditva"
+          timeout 1800 python allasok.py Vas megye || echo "Vas hibára futott"
+          sleep 20
+          echo "Veszprém elinditva"
+          timeout 1800 python allasok.py Veszprém megye || echo "Veszprém hibára futott"
+          sleep 20
+          echo "Zala elinditva"
+          timeout 1800 python allasok.py Zala megye || echo "Zala hibára futott"
+          sleep 18
           echo "typesense szinkron elinditva"
           timeout 1800 python szinkron.py  || echo "szinkronizalas hibára futott"
 
