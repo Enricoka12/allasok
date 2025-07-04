@@ -1,0 +1,78 @@
+name: Napi script futtatás
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 13:00 magyar idő szerint (11:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+
+    
+    env:
+        USERNAME: ${{ secrets.USERNAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        TABLE_NAME: ${{ secrets.TABLE_NAME }}
+        LOGIN_URL: ${{ secrets.LOGIN_URL }}
+        SEARCH_URL: ${{ secrets.SEARCH_URL }}
+        TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
+        TYPESENSE_API_KEY: ${{ secrets.TYPESENSE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4 requests supabase python-dotenv typesense aiohttp
+          pip install pandas numpy  # Opcionális, ha szükséges
+      - name: Run scripts in order
+        run: |
+          echo "újpest elinditva"
+          timeout 1800 python allasok.py újpest 25 || echo "újpest hibára futott"
+          sleep 30
+          echo "kispest elinditva"
+          timeout 1800 python allasok.py kispest 25 || echo "kispest hibára futott"
+          sleep 20
+          echo "budaörs elinditva"
+          timeout 1800 python allasok.py budaörs 10 || echo "budaörs hibára futott"
+          sleep 30
+          echo "gödöllő elinditva"
+          timeout 1800 python allasok.py gödöllő 25 || echo "gödöllő hibára futott"
+          sleep 20
+          echo "cegléd elinditva"
+          timeout 1800 python allasok.py cegléd || echo "cegléd hibára futott"
+          sleep 30
+          echo "győr elinditva"
+          timeout 1800 python allasok.py győr || echo "győr hibára futott"
+          sleep 20
+          echo "sopron elinditva"
+          timeout 1800 python allasok.py sopron || echo "sopron hibára futott"
+          sleep 30
+          echo "zalaegerszeg elinditva"
+          timeout 1800 python allasok.py zalaegerszeg 25 || echo "zalaegerszeg hibára futott"
+          sleep 20
+          echo "szombathely elinditva"
+          timeout 1800 python allasok.py szombathely 25 || echo "szombathely hibára futott"
+          sleep 30
+          echo "kaposvár elinditva"
+          timeout 1800 python allasok.py kaposvár || echo "kaposvár hibára futott"
+          sleep 20
+          echo "pécs elinditva"
+          timeout 1800 python allasok.py pécs || echo "pécs hibára futott"
+          sleep 30
+          echo "szekszárd elinditva"
+          timeout 1800 python allasok.py szekszárd || echo "szekszárd hibára futott"
+          sleep 30
+          echo "typesense szinkron elinditva"
+          timeout 1800 python szinkron.py  || echo "szinkronizalas hibára futott"
