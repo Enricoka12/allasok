@@ -1,4 +1,4 @@
-name: Napi script futtatás
+name: Napi script futtatás reggel
 
 on:
   schedule:
