@@ -72,7 +72,7 @@ jobs:
           timeout 1800 python allasok.py pécs || echo "pécs hibára futott"
           sleep 30
           echo "szekszárd elinditva"
-          timeout 1800 python allasok.py szekszárd || echo "szekszárd hibára futott"
+          timeout 1800 python allasok.py szekszárd 25 || echo "szekszárd hibára futott"
           sleep 30
           echo "typesense szinkron elinditva"
           timeout 1800 python szinkron.py  || echo "szinkronizalas hibára futott"
