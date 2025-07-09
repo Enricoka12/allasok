@@ -334,7 +334,7 @@ def main():
         allasok.extend(page_allasok)
         if van_kovetkezo:
             oldal_szam += 1
-            time.sleep(random.uniform(15, 20))
+            time.sleep(random.uniform(25, 35))
         else:
             break
 
@@ -360,7 +360,7 @@ def main():
         print(f"📖 {i+1}/{len(uj_allasok)}: {allas['Munka neve']} - részletes adatok letöltése...")
         detail = get_job_details(session, allas)
         allas.update(detail)
-        time.sleep(random.uniform(15, 20))
+        time.sleep(random.uniform(25, 35))
 
     # Feltöltés a DB-be (csak új állások)
     if supabase and uj_allasok:
