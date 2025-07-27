@@ -64,6 +64,4 @@ jobs:
           sleep 35
           echo "salgótarján elinditva"
           timeout 2800 python allasok.py salgótarján || echo "salgótarján hibára futott"
-          sleep 30
-          echo "typesense szinkron elinditva"
-          timeout 2800 python szinkron.py  || echo "szinkronizalas hibára futott"
+          
