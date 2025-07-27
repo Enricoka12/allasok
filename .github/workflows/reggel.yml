@@ -73,6 +73,4 @@ jobs:
           sleep 35
           echo "szekszárd elinditva"
           timeout 2800 python allasok.py szekszárd 25 || echo "szekszárd hibára futott"
-          sleep 30
-          echo "typesense szinkron elinditva"
-          timeout 2800 python szinkron.py  || echo "szinkronizalas hibára futott"
+          
