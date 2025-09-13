@@ -137,7 +137,8 @@ def allas_adatok_konvertalasa(allas):
         "a_munkakorhoz_kapcsolodo_juttatasok": allas.get("a_munkakorhoz_kapcsolodo_juttatasok"),
         "allas_egyeztes_helye": allas.get("allas_egyeztes_helye"),
         "allas_egyeztetes_ideje": allas.get("allas_egyeztetes_ideje"),
-        "active": True
+        "active": True,
+        "szarmazas": "virtuális munkaerő piac"
     }
 
 # Feltöltés a Supabase-ba
