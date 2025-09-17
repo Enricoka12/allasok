@@ -165,6 +165,16 @@ def allasok_feltoltese_supabase(supabase, allasok):
             return True
 
         # Feltöltés / upsert on_conflict a link mezőre
+        supabase.table(TABLE_NAME).upsert(unique_adatok, on_conflict="link").execute()
+
+        print(f"✅ Feltöltve: {len(unique_adatok)} állás")
+        return True
+
+    except Exception as e:
+        print(f"❌ Hiba a feltöltés során: {e}")
+        return False
+
+        # Feltöltés / upsert on_conflict a link mezőre
         result = supabase.table(TABLE_NAME).upsert(unique_adatok, on_conflict="link").execute()
 
         # Ellenőrzés
