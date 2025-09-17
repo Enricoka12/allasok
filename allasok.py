@@ -148,10 +148,10 @@ def allasok_feltoltese_supabase(supabase, allasok):
         return False
 
     try:
-        # 1️⃣ Átalakítás dict formátumra
+        # Átalakítás dict formátumra
         adatok = [allas_adatok_konvertalasa(a) for a in allasok]
 
-        # 2️⃣ Ismétlődő linkek kiszűrése
+        # Ismétlődő linkek kiszűrése
         unique_adatok = []
         seen_links = set()
         for a in adatok:
@@ -164,11 +164,12 @@ def allasok_feltoltese_supabase(supabase, allasok):
             print("✅ Nincsenek új rekordok feltöltésre")
             return True
 
-        # 3️⃣ Feltöltés/upsert on_conflict a link mezőre
+        # Feltöltés / upsert on_conflict a link mezőre
         result = supabase.table(TABLE_NAME).upsert(unique_adatok, on_conflict="link").execute()
 
-        if result.error:
-            print(f"❌ Hiba a feltöltésben: {result.error}")
+        # Ellenőrzés
+        if result.status_code >= 400:
+            print(f"❌ Hiba a feltöltésben, status_code: {result.status_code}")
             return False
 
         print(f"✅ Feltöltve: {len(unique_adatok)} állás")
@@ -177,6 +178,7 @@ def allasok_feltoltese_supabase(supabase, allasok):
     except Exception as e:
         print(f"❌ Hiba a feltöltés során: {e}")
         return False
+
 
 # Ellenőrzi, hogy létezik-e már az állás a DB-ben
 def meglevo_allasok_ellenorzese(supabase, link):
