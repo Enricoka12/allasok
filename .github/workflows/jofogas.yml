@@ -30,5 +30,6 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          TABLE_NAME: ${{ secrets.TABLE_NAME }}
         run: |
           python jofogas.py
