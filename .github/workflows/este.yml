@@ -39,29 +39,29 @@ jobs:
       - name: Run scripts in order
         run: |
           echo "kecskemét elinditva"
-          timeout 2800 python allasok.py kecskemét || echo "kecskemét hibára futott"
+          timeout 5800 python allasok.py kecskemét || echo "kecskemét hibára futott"
           sleep 35
           echo "szeged elinditva"
-          timeout 2800 python allasok.py szeged || echo "szeged hibára futott"
+          timeout 5800 python allasok.py szeged || echo "szeged hibára futott"
           sleep 35
           echo "békéscsaba elinditva"
-          timeout 2800 python allasok.py békéscsaba || echo "békéscsaba hibára futott"
+          timeout 5800 python allasok.py békéscsaba || echo "békéscsaba hibára futott"
           sleep 35
           echo "miskolc elinditva"
-          timeout 2800 python allasok.py miskolc || echo "miskolc hibára futott"
+          timeout 5800 python allasok.py miskolc || echo "miskolc hibára futott"
           sleep 35
           echo "nyíregyháza elinditva"
-          timeout 2800 python allasok.py nyíregyháza || echo "nyíregyháza hibára futott"
+          timeout 5800 python allasok.py nyíregyháza || echo "nyíregyháza hibára futott"
           sleep 35
           echo "debrecen elinditva"
-          timeout 2800 python allasok.py debrecen || echo "debrecen hibára futott"
+          timeout 5800 python allasok.py debrecen || echo "debrecen hibára futott"
           sleep 35
           echo "eger elinditva"
-          timeout 2800 python allasok.py eger || echo "eger hibára futott"
+          timeout 5800 python allasok.py eger || echo "eger hibára futott"
           sleep 35
           echo "szolnok elinditva"
-          timeout 2800 python allasok.py szolnok || echo "szolnok hibára futott"
+          timeout 5800 python allasok.py szolnok || echo "szolnok hibára futott"
           sleep 35
           echo "salgótarján elinditva"
-          timeout 2800 python allasok.py salgótarján || echo "salgótarján hibára futott"
+          timeout 5800 python allasok.py salgótarján || echo "salgótarján hibára futott"
           
