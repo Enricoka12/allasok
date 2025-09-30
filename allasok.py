@@ -144,34 +144,47 @@ def allas_adatok_konvertalasa(allas):
     }
 
 # ---------------------------------------------------------
-# Feltöltés Supabase-ba
+# Feltöltés Supabase-ba batch-ben
 # ---------------------------------------------------------
-def allasok_feltoltese_supabase(supabase, allasok):
+def allasok_feltoltese_supabase(supabase, allasok, batch_meret=50):
     if not supabase:
         print("❌ Nincs Supabase kapcsolat!")
         return False
 
-    try:
-        adatok = [allas_adatok_konvertalasa(a) for a in allasok]
+    adatok = [allas_adatok_konvertalasa(a) for a in allasok]
 
-        unique_adatok = []
-        seen_links = set()
-        for a in adatok:
-            link = a.get("link")
-            if link and link not in seen_links:
-                unique_adatok.append(a)
-                seen_links.add(link)
+    # egyediség link alapján
+    unique_adatok = []
+    seen_links = set()
+    for a in adatok:
+        link = a.get("link")
+        if link and link not in seen_links:
+            unique_adatok.append(a)
+            seen_links.add(link)
 
-        if not unique_adatok:
-            print("✅ Nincsenek új rekordok feltöltésre")
-            return True
-
-        supabase.table(TABLE_NAME).upsert(unique_adatok, on_conflict="link").execute()
-        print(f"✅ Feltöltve: {len(unique_adatok)} állás")
+    if not unique_adatok:
+        print("✅ Nincsenek új rekordok feltöltésre")
         return True
-    except Exception as e:
-        print(f"❌ Hiba a feltöltés során: {e}")
-        return False
+
+    # batch feldolgozás
+    for i in range(0, len(unique_adatok), batch_meret):
+        batch = unique_adatok[i:i + batch_meret]
+        try:
+            resp = supabase.table(TABLE_NAME).upsert(
+                batch,
+                on_conflict=["link"]
+            ).execute()
+            if hasattr(resp, "data") and resp.data is not None:
+                print(f"✅ Batch mentve: {len(resp.data)} sor")
+            else:
+                print("⚠ Supabase válasz:", resp)
+        except Exception as e:
+            print(f"❌ Hiba a batch mentés során: {e}")
+
+        # rövid várakozás batch-ek között
+        time.sleep(random.uniform(2, 4))
+
+    return True
 
 # ---------------------------------------------------------
 # Belépés
@@ -368,18 +381,18 @@ def main():
         allasok_feltoltese_supabase(supabase, uj_allasok)
 
     email_uzenet = f"""
-    VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
+VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
 
-    📊 ÖSSZEGZÉS:
-    • Találatok: {len(allasok)} db
-    • Új: {len(uj_allasok)} db
-    • Már meglévő: {len(allasok) - len(uj_allasok)} db
-    • Inaktivált: {inaktivalt_szam} db
+📊 ÖSSZEGZÉS:
+• Találatok: {len(allasok)} db
+• Új: {len(uj_allasok)} db
+• Már meglévő: {len(allasok) - len(uj_allasok)} db
+• Inaktivált: {inaktivalt_szam} db
 
-    🔍 Keresési URL: {keresesi_link}
+🔍 Keresési URL: {keresesi_link}
 
-    {'🎉 Vannak új állások!' if uj_allasok else '📋 Nincsenek új állások.'}
-    """
+{'🎉 Vannak új állások!' if uj_allasok else '📋 Nincsenek új állások.'}
+"""
     
     email_subject = f"VMP álláskeresés - {len(uj_allasok)} új állás - {LOCATION}"
     send_email(email_subject, email_uzenet)
