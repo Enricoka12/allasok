@@ -6,6 +6,7 @@ import time
 import random
 import sys
 import os
+from datetime import datetime, timezone
 from supabase import create_client, Client
 import smtplib
 from email.mime.text import MIMEText
@@ -97,9 +98,14 @@ def inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek):
         db_linkek = db_allasok_lekerese(supabase, keresesi_link)
         inaktivalando_linkek = [link for link in db_linkek.keys() if link not in scrapped_linkek]
         
+        most = datetime.now(timezone.utc).isoformat()
+        
         if inaktivalando_linkek:
             for link in inaktivalando_linkek:
-                supabase.table(TABLE_NAME).update({"active": False}).eq("link", link).execute()
+                supabase.table(TABLE_NAME).update({
+                    "active": False,
+                    "utoljara_frissitve": most
+                }).eq("link", link).execute()
             print(f"✅ {len(inaktivalando_linkek)} állás inaktiválva")
             return len(inaktivalando_linkek)
         else:
@@ -113,6 +119,7 @@ def inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek):
 # Állás konvertálása
 # ---------------------------------------------------------
 def allas_adatok_konvertalasa(allas):
+    most = datetime.now(timezone.utc).isoformat()
     return {
         "munka_neve": allas.get("Munka neve"),
         "munka_tipusa": allas.get("Munka típusa"),
@@ -140,7 +147,8 @@ def allas_adatok_konvertalasa(allas):
         "allas_egyeztes_helye": allas.get("allas_egyeztes_helye"),
         "allas_egyeztetes_ideje": allas.get("allas_egyeztetes_ideje"),
         "active": True,
-        "szarmazas": "virtuális munkaerő piac"
+        "szarmazas": "virtuális munkaerő piac",
+        "utoljara_frissitve": most  # ÚJ MEZŐ
     }
 
 # ---------------------------------------------------------
@@ -166,25 +174,76 @@ def allasok_feltoltese_supabase(supabase, allasok, batch_meret=50):
         print("✅ Nincsenek új rekordok feltöltésre")
         return True
 
+    osszes_mentett = 0
+    
     # batch feldolgozás
     for i in range(0, len(unique_adatok), batch_meret):
         batch = unique_adatok[i:i + batch_meret]
         try:
+            # JAVÍTOTT UPSERT
             resp = supabase.table(TABLE_NAME).upsert(
                 batch,
-                on_conflict=["link"]
+                on_conflict="link",  # String helyett egyszerű string
+                returning="representation"  # Válasz visszaadása
             ).execute()
+            
             if hasattr(resp, "data") and resp.data is not None:
-                print(f"✅ Batch mentve: {len(resp.data)} sor")
+                mentett_db = len(resp.data)
+                osszes_mentett += mentett_db
+                print(f"✅ Batch mentve: {mentett_db} sor (összesen: {osszes_mentett})")
             else:
-                print("⚠ Supabase válasz:", resp)
+                print(f"⚠ Supabase válasz: {resp}")
+                
         except Exception as e:
             print(f"❌ Hiba a batch mentés során: {e}")
+            print(f"   Batch méret: {len(batch)}")
+            # Próbáljuk egyesével
+            for j, adat in enumerate(batch):
+                try:
+                    egyedi_resp = supabase.table(TABLE_NAME).upsert(
+                        adat,
+                        on_conflict="link",
+                        returning="representation"
+                    ).execute()
+                    if hasattr(egyedi_resp, "data") and egyedi_resp.data:
+                        osszes_mentett += 1
+                        print(f"  ✅ Egyedi mentés sikeres ({j+1}/{len(batch)})")
+                except Exception as egyedi_e:
+                    print(f"  ❌ Egyedi mentés hiba ({j+1}/{len(batch)}): {egyedi_e}")
+                    print(f"     Link: {adat.get('link')}")
 
         # rövid várakozás batch-ek között
         time.sleep(random.uniform(2, 4))
 
-    return True
+    print(f"📊 Összesen {osszes_mentett} sor mentve az adatbázisba")
+    return osszes_mentett > 0
+
+# ---------------------------------------------------------
+# Meglévő állások frissítése (ha már léteztek)
+# ---------------------------------------------------------
+def meglevo_allasok_frissitese(supabase, allasok, db_allasok):
+    """Frissíti a már létező állások utoljara_frissitve mezőjét"""
+    if not supabase or not db_allasok:
+        return 0
+    
+    most = datetime.now(timezone.utc).isoformat()
+    frissitett = 0
+    
+    for allas in allasok:
+        if allas["Link"] in db_allasok:
+            try:
+                supabase.table(TABLE_NAME).update({
+                    "utoljara_frissitve": most,
+                    "active": True  # Biztosítjuk hogy aktív maradjon
+                }).eq("link", allas["Link"]).execute()
+                frissitett += 1
+            except Exception as e:
+                print(f"❌ Frissítés hiba ({allas['Link']}): {e}")
+    
+    if frissitett > 0:
+        print(f"🔄 {frissitett} meglévő állás frissítve")
+    
+    return frissitett
 
 # ---------------------------------------------------------
 # Belépés
@@ -359,26 +418,39 @@ def main():
     print(f"📋 Összesen {len(allasok)} állás találva")
 
     uj_allasok = []
+    meglevo_allasok = []
     scrapped_linkek = set()
+    
     for allas in allasok:
         scrapped_linkek.add(allas["Link"])
         if allas["Link"] not in db_allasok:
             uj_allasok.append(allas)
+        else:
+            meglevo_allasok.append(allas)
 
     print(f"🆕 {len(uj_allasok)} új állás")
-    print(f"♻️ {len(allasok) - len(uj_allasok)} már létezett")
+    print(f"♻️ {len(meglevo_allasok)} már létezett")
 
+    # Meglévő állások frissítése
+    frissitett_szam = meglevo_allasok_frissitese(supabase, meglevo_allasok, db_allasok)
+    
+    # Inaktiválás
     inaktivalt_szam = inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek)
 
+    # Részletes adatok letöltése ÚJ állásokhoz
     for i, allas in enumerate(uj_allasok):
         print(f"📖 {i+1}/{len(uj_allasok)}: {allas['Munka neve']} - részletes adatletöltés...")
         detail = get_job_details(session, allas)
         allas.update(detail)
         time.sleep(random.uniform(25, 35))
 
+    # Új állások feltöltése
+    mentett_db = 0
     if supabase and uj_allasok:
         print("💾 Új állások feltöltése DB-be...")
-        allasok_feltoltese_supabase(supabase, uj_allasok)
+        sikeres = allasok_feltoltese_supabase(supabase, uj_allasok)
+        if sikeres:
+            mentett_db = len(uj_allasok)
 
     email_uzenet = f"""
 VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
@@ -386,8 +458,10 @@ VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
 📊 ÖSSZEGZÉS:
 • Találatok: {len(allasok)} db
 • Új: {len(uj_allasok)} db
-• Már meglévő: {len(allasok) - len(uj_allasok)} db
+• Már meglévő: {len(meglevo_allasok)} db
+• Frissítve: {frissitett_szam} db
 • Inaktivált: {inaktivalt_szam} db
+• DB-be mentve: {mentett_db} db
 
 🔍 Keresési URL: {keresesi_link}
 
