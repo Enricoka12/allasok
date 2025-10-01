@@ -82,6 +82,7 @@ def supabase_kapcsolat():
 # DB lekérdezések
 # ---------------------------------------------------------
 def db_allasok_lekerese(supabase, keresesi_link):
+    """Visszaadja az aktív állásokat az adott keresési linkhez (inaktiváláshoz)"""
     if not supabase:
         return {}
     try:
@@ -90,6 +91,17 @@ def db_allasok_lekerese(supabase, keresesi_link):
     except Exception as e:
         print(f"❌ DB állások lekérése hiba: {e}")
         return {}
+
+def osszes_aktiv_link_lekerese(supabase):
+    """Visszaadja az ÖSSZES aktív állás linkjét az EGÉSZ adatbázisból"""
+    if not supabase:
+        return set()
+    try:
+        result = supabase.table(TABLE_NAME).select("link").eq("active", True).execute()
+        return {allas["link"] for allas in result.data}
+    except Exception as e:
+        print(f"❌ Összes aktív link lekérése hiba: {e}")
+        return set()
 
 def inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek):
     if not supabase:
@@ -229,24 +241,23 @@ def allasok_feltoltese_supabase(supabase, allasok):
 # ---------------------------------------------------------
 # Meglévő állások frissítése (ha már léteztek)
 # ---------------------------------------------------------
-def meglevo_allasok_frissitese(supabase, allasok, db_allasok):
+def meglevo_allasok_frissitese(supabase, allasok_linkjei):
     """Frissíti a már létező állások utoljara_frissitve mezőjét"""
-    if not supabase or not db_allasok:
+    if not supabase or not allasok_linkjei:
         return 0
     
     most = datetime.now(timezone.utc).isoformat()
     frissitett = 0
     
-    for allas in allasok:
-        if allas["Link"] in db_allasok:
-            try:
-                supabase.table(TABLE_NAME).update({
-                    "utoljara_frissitve": most,
-                    "active": True  # Biztosítjuk hogy aktív maradjon
-                }).eq("link", allas["Link"]).execute()
-                frissitett += 1
-            except Exception as e:
-                print(f"❌ Frissítés hiba ({allas['Link']}): {e}")
+    for link in allasok_linkjei:
+        try:
+            supabase.table(TABLE_NAME).update({
+                "utoljara_frissitve": most,
+                "active": True
+            }).eq("link", link).execute()
+            frissitett += 1
+        except Exception as e:
+            print(f"❌ Frissítés hiba ({link}): {e}")
     
     if frissitett > 0:
         print(f"🔄 {frissitett} meglévő állás frissítve")
@@ -407,13 +418,20 @@ def main():
     
     # KONTROLL: Aktív állások száma ELŐTTE
     aktiv_elotte = get_aktiv_allasok_szama(supabase, keresesi_link)
-    print(f"📊 DB-ben {aktiv_elotte} aktív állás van FELTÖLTÉS ELŐTT")
+    print(f"📊 DB-ben {aktiv_elotte} aktív állás van ehhez a kereséshez FELTÖLTÉS ELŐTT")
     
-    db_allasok = db_allasok_lekerese(supabase, keresesi_link) if supabase else {}
+    # Lekérjük az adott keresési linkhez tartozó állásokat (inaktiváláshoz)
+    db_allasok_keresesi_link = db_allasok_lekerese(supabase, keresesi_link) if supabase else {}
+    
+    # Lekérjük az ÖSSZES aktív állás linkjét az EGÉSZ adatbázisból (duplikáció ellenőrzéshez)
+    osszes_aktiv_link = osszes_aktiv_link_lekerese(supabase) if supabase else set()
+    print(f"📊 Teljes adatbázisban {len(osszes_aktiv_link)} aktív állás van (összes keresésből)")
 
     allasok = []
     oldal_szam = 1
 
+    # Csak a linkeket gyűjtjük (GYORS)
+    print("\n🔍 LINKEK GYŰJTÉSE (részletes adatok nélkül)...")
     while True:
         print(f"🔍 Betöltés oldal: {oldal_szam}")
         page_allasok, van_kovetkezo = get_allasok_egy_oldalrol(session, oldal_szam)
@@ -428,51 +446,60 @@ def main():
 
     print(f"📋 Összesen {len(allasok)} állás találva")
 
-    uj_allasok = []
-    meglevo_allasok = []
+    # SZÉTVÁLOGATÁS: Tényleg új vs már létező (EGÉSZ adatbázis alapján!)
+    tenyleg_uj_allasok = []
+    mar_letezo_allasok_linkjei = []
     scrapped_linkek = set()
     
     for allas in allasok:
-        scrapped_linkek.add(allas["Link"])
-        if allas["Link"] not in db_allasok:
-            uj_allasok.append(allas)
+        link = allas["Link"]
+        scrapped_linkek.add(link)
+        
+        if link not in osszes_aktiv_link:
+            # TÉNYLEG ÚJ - nincs bent az EGÉSZ adatbázisban
+            tenyleg_uj_allasok.append(allas)
         else:
-            meglevo_allasok.append(allas)
+            # MÁR LÉTEZIK valahol az adatbázisban
+            mar_letezo_allasok_linkjei.append(link)
 
-    print(f"🆕 {len(uj_allasok)} új állás")
-    print(f"♻️ {len(meglevo_allasok)} már létezett")
+    print(f"\n🆕 {len(tenyleg_uj_allasok)} TÉNYLEG ÚJ állás (nincs bent az adatbázisban)")
+    print(f"♻️ {len(mar_letezo_allasok_linkjei)} már létező állás (megvan más keresésből)")
 
-    # Meglévő állások frissítése
-    frissitett_szam = meglevo_allasok_frissitese(supabase, meglevo_allasok, db_allasok)
+    # Meglévő állások frissítése (utoljara_frissitve)
+    frissitett_szam = meglevo_allasok_frissitese(supabase, mar_letezo_allasok_linkjei)
     
-    # Inaktiválás
+    # Inaktiválás (csak a keresési linkhez tartozó állások közül azok, amiket most NEM találtunk)
     inaktivalt_szam = inaktivalt_allasok(supabase, keresesi_link, scrapped_linkek)
 
-    # Részletes adatok letöltése ÚJ állásokhoz
-    for i, allas in enumerate(uj_allasok):
-        print(f"📖 {i+1}/{len(uj_allasok)}: {allas['Munka neve']} - részletes adatletöltés...")
-        detail = get_job_details(session, allas)
-        allas.update(detail)
-        time.sleep(random.uniform(25, 35))
+    # Részletes adatok letöltése CSAK a TÉNYLEG ÚJ állásokhoz
+    if tenyleg_uj_allasok:
+        print(f"\n📖 RÉSZLETES ADATOK LETÖLTÉSE ({len(tenyleg_uj_allasok)} új álláshoz)...")
+        for i, allas in enumerate(tenyleg_uj_allasok):
+            print(f"📖 {i+1}/{len(tenyleg_uj_allasok)}: {allas['Munka neve']} - részletes adatletöltés...")
+            detail = get_job_details(session, allas)
+            allas.update(detail)
+            time.sleep(random.uniform(25, 35))
+    else:
+        print("\n✅ Nincs új állás, nincs mit letölteni")
 
     # Új állások feltöltése
     mentett_db = 0
-    if supabase and uj_allasok:
+    if supabase and tenyleg_uj_allasok:
         print("\n💾 Új állások feltöltése DB-be...")
-        mentett_db = allasok_feltoltese_supabase(supabase, uj_allasok)
+        mentett_db = allasok_feltoltese_supabase(supabase, tenyleg_uj_allasok)
 
     # KONTROLL: Aktív állások száma UTÁNA
     aktiv_utana = get_aktiv_allasok_szama(supabase, keresesi_link)
-    print(f"\n📊 DB-ben {aktiv_utana} aktív állás van FELTÖLTÉS UTÁN")
+    print(f"\n📊 DB-ben {aktiv_utana} aktív állás van ehhez a kereséshez FELTÖLTÉS UTÁN")
     
     # ELLENŐRZÉS
-    vart_szam = aktiv_elotte - inaktivalt_szam + len(uj_allasok)
+    vart_szam = aktiv_elotte - inaktivalt_szam + len(tenyleg_uj_allasok)
     kulonbseg = aktiv_utana - vart_szam
     
     print(f"\n🔍 KONTROLL:")
-    print(f"   Előtte: {aktiv_elotte} db")
+    print(f"   Előtte (keresési link): {aktiv_elotte} db")
     print(f"   Inaktivált: -{inaktivalt_szam} db")
-    print(f"   Új feltöltve: +{len(uj_allasok)} db")
+    print(f"   Tényleg új feltöltve: +{len(tenyleg_uj_allasok)} db")
     print(f"   Várt végeredmény: {vart_szam} db")
     print(f"   Tényleges végeredmény: {aktiv_utana} db")
     print(f"   Eltérés: {kulonbseg} db")
@@ -488,26 +515,27 @@ def main():
 VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
 
 📊 ÖSSZEGZÉS:
-• Találatok: {len(allasok)} db
-• Új: {len(uj_allasok)} db
-• Már meglévő: {len(meglevo_allasok)} db
+• Scrape találatok: {len(allasok)} db
+• Tényleg új (nincs az adatbázisban): {len(tenyleg_uj_allasok)} db
+• Már létező (megvan más keresésből): {len(mar_letezo_allasok_linkjei)} db
 • Frissítve: {frissitett_szam} db
 • Inaktivált: {inaktivalt_szam} db
 • DB-be mentve: {mentett_db} db
 
 📈 ADATBÁZIS KONTROLL:
-• Aktív állások feltöltés előtt: {aktiv_elotte} db
-• Aktív állások feltöltés után: {aktiv_utana} db
+• Aktív állások ehhez a kereséshez (előtte): {aktiv_elotte} db
+• Aktív állások ehhez a kereséshez (utána): {aktiv_utana} db
+• Összes aktív állás az adatbázisban: {len(osszes_aktiv_link)} db
 • Várt végeredmény: {vart_szam} db
 • Tényleges végeredmény: {aktiv_utana} db
 • Státusz: {kontroll_status}
 
 🔍 Keresési URL: {keresesi_link}
 
-{'🎉 Vannak új állások!' if uj_allasok else '📋 Nincsenek új állások.'}
+{'🎉 Vannak tényleg új állások!' if tenyleg_uj_allasok else '📋 Nincsenek új állások (minden már bent van az adatbázisban).'}
 """
     
-    email_subject = f"VMP álláskeresés - {len(uj_allasok)} új állás - {LOCATION} {kontroll_status}"
+    email_subject = f"VMP álláskeresés - {len(tenyleg_uj_allasok)} új állás - {LOCATION} {kontroll_status}"
     send_email(email_subject, email_uzenet)
 
 if __name__ == "__main__":
