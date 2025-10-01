@@ -152,12 +152,27 @@ def allas_adatok_konvertalasa(allas):
     }
 
 # ---------------------------------------------------------
-# Feltöltés Supabase-ba batch-ben
+# Aktív állások számának lekérése
 # ---------------------------------------------------------
-def allasok_feltoltese_supabase(supabase, allasok, batch_meret=50):
+def get_aktiv_allasok_szama(supabase, keresesi_link):
+    """Visszaadja az aktív állások számát az adott keresési linkhez"""
+    if not supabase:
+        return 0
+    try:
+        result = supabase.table(TABLE_NAME).select("id", count="exact").eq("keresesi_link", keresesi_link).eq("active", True).execute()
+        szam = result.count if hasattr(result, 'count') and result.count is not None else 0
+        return szam
+    except Exception as e:
+        print(f"❌ Aktív állások lekérése hiba: {e}")
+        return 0
+
+# ---------------------------------------------------------
+# Feltöltés Supabase-ba EGYENKÉNT (batch nélkül)
+# ---------------------------------------------------------
+def allasok_feltoltese_supabase(supabase, allasok):
     if not supabase:
         print("❌ Nincs Supabase kapcsolat!")
-        return False
+        return 0
 
     adatok = [allas_adatok_konvertalasa(a) for a in allasok]
 
@@ -172,63 +187,44 @@ def allasok_feltoltese_supabase(supabase, allasok, batch_meret=50):
 
     if not unique_adatok:
         print("✅ Nincsenek új rekordok feltöltésre")
-        return True
+        return 0
 
-    print(f"📝 {len(unique_adatok)} egyedi rekord feldolgozása...")
+    print(f"📝 {len(unique_adatok)} egyedi rekord feltöltése egyenként...")
     osszes_mentett = 0
+    sikertelen = 0
     
-    # batch feldolgozás
-    for i in range(0, len(unique_adatok), batch_meret):
-        batch = unique_adatok[i:i + batch_meret]
-        batch_szam = (i // batch_meret) + 1
-        print(f"\n🔄 Batch #{batch_szam}: {len(batch)} rekord...")
-        
+    # Egyenként mentés
+    for i, adat in enumerate(unique_adatok):
         try:
-            # UPSERT explicit on_conflict-tel
             resp = supabase.table(TABLE_NAME).upsert(
-                batch,
-                on_conflict="link"  # KRITIKUS: meg kell adni a UNIQUE oszlopot!
+                adat,
+                on_conflict="link"
             ).execute()
             
-            print(f"   📊 Válasz típus: {type(resp)}")
-            print(f"   📊 Van data? {hasattr(resp, 'data')}")
-            
-            if hasattr(resp, "data") and resp.data is not None:
-                mentett_db = len(resp.data)
-                osszes_mentett += mentett_db
-                print(f"   ✅ Batch mentve: {mentett_db} sor (összesen: {osszes_mentett})")
+            if hasattr(resp, "data") and resp.data is not None and len(resp.data) > 0:
+                osszes_mentett += 1
+                if (i + 1) % 10 == 0:  # Minden 10. rekorднál kiírás
+                    print(f"   ✅ Mentve: {i + 1}/{len(unique_adatok)}")
             else:
-                print(f"   ⚠ Supabase válasz nem tartalmaz adatot")
-                print(f"   ⚠ Teljes válasz: {resp}")
+                sikertelen += 1
+                print(f"   ⚠ Nem mentődött: {adat.get('munka_neve')} | Link: {adat.get('link')}")
                 
         except Exception as e:
-            print(f"   ❌ Hiba a batch mentés során: {e}")
-            print(f"   ❌ Hiba típusa: {type(e).__name__}")
-            print(f"   Batch méret: {len(batch)}")
-            
-            # Próbáljuk egyesével
-            print(f"   🔄 Egyesével próbálkozás...")
-            for j, adat in enumerate(batch):
-                try:
-                    egyedi_resp = supabase.table(TABLE_NAME).upsert(
-                        adat,
-                        on_conflict="link"
-                    ).execute()
-                    if hasattr(egyedi_resp, "data") and egyedi_resp.data:
-                        osszes_mentett += 1
-                        print(f"      ✅ Egyedi mentés sikeres ({j+1}/{len(batch)})")
-                    else:
-                        print(f"      ⚠ Egyedi mentés: nincs data visszaadva ({j+1}/{len(batch)})")
-                except Exception as egyedi_e:
-                    print(f"      ❌ Egyedi mentés hiba ({j+1}/{len(batch)}): {egyedi_e}")
-                    print(f"         Link: {adat.get('link')}")
-                    print(f"         Munka: {adat.get('munka_neve')}")
+            sikertelen += 1
+            print(f"   ❌ Hiba ({i + 1}/{len(unique_adatok)}): {e}")
+            print(f"      Munka: {adat.get('munka_neve')}")
+            print(f"      Link: {adat.get('link')}")
 
-        # rövid várakozás batch-ek között
-        time.sleep(random.uniform(2, 4))
+        # Rövid szünet minden 10. mentés után
+        if (i + 1) % 10 == 0:
+            time.sleep(random.uniform(1, 2))
 
-    print(f"\n📊 VÉGEREDMÉNY: {osszes_mentett} sor mentve az adatbázisba")
-    return osszes_mentett > 0
+    print(f"\n📊 MENTÉS EREDMÉNYE:")
+    print(f"   ✅ Sikeres: {osszes_mentett}")
+    print(f"   ❌ Sikertelen: {sikertelen}")
+    print(f"   📋 Összesen: {len(unique_adatok)}")
+    
+    return osszes_mentett
 
 # ---------------------------------------------------------
 # Meglévő állások frissítése (ha már léteztek)
@@ -408,9 +404,12 @@ def main():
 
     supabase = supabase_kapcsolat()
     keresesi_link = create_search_url()
+    
+    # KONTROLL: Aktív állások száma ELŐTTE
+    aktiv_elotte = get_aktiv_allasok_szama(supabase, keresesi_link)
+    print(f"📊 DB-ben {aktiv_elotte} aktív állás van FELTÖLTÉS ELŐTT")
+    
     db_allasok = db_allasok_lekerese(supabase, keresesi_link) if supabase else {}
-
-    print(f"📊 DB-ben {len(db_allasok)} aktív állás van most")
 
     allasok = []
     oldal_szam = 1
@@ -459,10 +458,31 @@ def main():
     # Új állások feltöltése
     mentett_db = 0
     if supabase and uj_allasok:
-        print("💾 Új állások feltöltése DB-be...")
-        sikeres = allasok_feltoltese_supabase(supabase, uj_allasok)
-        if sikeres:
-            mentett_db = len(uj_allasok)
+        print("\n💾 Új állások feltöltése DB-be...")
+        mentett_db = allasok_feltoltese_supabase(supabase, uj_allasok)
+
+    # KONTROLL: Aktív állások száma UTÁNA
+    aktiv_utana = get_aktiv_allasok_szama(supabase, keresesi_link)
+    print(f"\n📊 DB-ben {aktiv_utana} aktív állás van FELTÖLTÉS UTÁN")
+    
+    # ELLENŐRZÉS
+    vart_szam = aktiv_elotte - inaktivalt_szam + len(uj_allasok)
+    kulonbseg = aktiv_utana - vart_szam
+    
+    print(f"\n🔍 KONTROLL:")
+    print(f"   Előtte: {aktiv_elotte} db")
+    print(f"   Inaktivált: -{inaktivalt_szam} db")
+    print(f"   Új feltöltve: +{len(uj_allasok)} db")
+    print(f"   Várt végeredmény: {vart_szam} db")
+    print(f"   Tényleges végeredmény: {aktiv_utana} db")
+    print(f"   Eltérés: {kulonbseg} db")
+    
+    if kulonbseg == 0:
+        print(f"   ✅ MINDEN RENDBEN! Nincs eltérés.")
+        kontroll_status = "✅ SIKERES"
+    else:
+        print(f"   ⚠️ FIGYELEM! {abs(kulonbseg)} db eltérés van!")
+        kontroll_status = f"⚠️ ELTÉRÉS: {kulonbseg} db"
 
     email_uzenet = f"""
 VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
@@ -475,12 +495,19 @@ VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
 • Inaktivált: {inaktivalt_szam} db
 • DB-be mentve: {mentett_db} db
 
+📈 ADATBÁZIS KONTROLL:
+• Aktív állások feltöltés előtt: {aktiv_elotte} db
+• Aktív állások feltöltés után: {aktiv_utana} db
+• Várt végeredmény: {vart_szam} db
+• Tényleges végeredmény: {aktiv_utana} db
+• Státusz: {kontroll_status}
+
 🔍 Keresési URL: {keresesi_link}
 
 {'🎉 Vannak új állások!' if uj_allasok else '📋 Nincsenek új állások.'}
 """
     
-    email_subject = f"VMP álláskeresés - {len(uj_allasok)} új állás - {LOCATION}"
+    email_subject = f"VMP álláskeresés - {len(uj_allasok)} új állás - {LOCATION} {kontroll_status}"
     send_email(email_subject, email_uzenet)
 
 if __name__ == "__main__":
