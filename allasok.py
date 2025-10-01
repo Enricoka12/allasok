@@ -174,48 +174,60 @@ def allasok_feltoltese_supabase(supabase, allasok, batch_meret=50):
         print("✅ Nincsenek új rekordok feltöltésre")
         return True
 
+    print(f"📝 {len(unique_adatok)} egyedi rekord feldolgozása...")
     osszes_mentett = 0
     
     # batch feldolgozás
     for i in range(0, len(unique_adatok), batch_meret):
         batch = unique_adatok[i:i + batch_meret]
+        batch_szam = (i // batch_meret) + 1
+        print(f"\n🔄 Batch #{batch_szam}: {len(batch)} rekord...")
+        
         try:
-            # JAVÍTOTT UPSERT
+            # UPSERT explicit on_conflict-tel
             resp = supabase.table(TABLE_NAME).upsert(
                 batch,
-                on_conflict="link",  # String helyett egyszerű string
-                returning="representation"  # Válasz visszaadása
+                on_conflict="link"  # KRITIKUS: meg kell adni a UNIQUE oszlopot!
             ).execute()
+            
+            print(f"   📊 Válasz típus: {type(resp)}")
+            print(f"   📊 Van data? {hasattr(resp, 'data')}")
             
             if hasattr(resp, "data") and resp.data is not None:
                 mentett_db = len(resp.data)
                 osszes_mentett += mentett_db
-                print(f"✅ Batch mentve: {mentett_db} sor (összesen: {osszes_mentett})")
+                print(f"   ✅ Batch mentve: {mentett_db} sor (összesen: {osszes_mentett})")
             else:
-                print(f"⚠ Supabase válasz: {resp}")
+                print(f"   ⚠ Supabase válasz nem tartalmaz adatot")
+                print(f"   ⚠ Teljes válasz: {resp}")
                 
         except Exception as e:
-            print(f"❌ Hiba a batch mentés során: {e}")
+            print(f"   ❌ Hiba a batch mentés során: {e}")
+            print(f"   ❌ Hiba típusa: {type(e).__name__}")
             print(f"   Batch méret: {len(batch)}")
+            
             # Próbáljuk egyesével
+            print(f"   🔄 Egyesével próbálkozás...")
             for j, adat in enumerate(batch):
                 try:
                     egyedi_resp = supabase.table(TABLE_NAME).upsert(
                         adat,
-                        on_conflict="link",
-                        returning="representation"
+                        on_conflict="link"
                     ).execute()
                     if hasattr(egyedi_resp, "data") and egyedi_resp.data:
                         osszes_mentett += 1
-                        print(f"  ✅ Egyedi mentés sikeres ({j+1}/{len(batch)})")
+                        print(f"      ✅ Egyedi mentés sikeres ({j+1}/{len(batch)})")
+                    else:
+                        print(f"      ⚠ Egyedi mentés: nincs data visszaadva ({j+1}/{len(batch)})")
                 except Exception as egyedi_e:
-                    print(f"  ❌ Egyedi mentés hiba ({j+1}/{len(batch)}): {egyedi_e}")
-                    print(f"     Link: {adat.get('link')}")
+                    print(f"      ❌ Egyedi mentés hiba ({j+1}/{len(batch)}): {egyedi_e}")
+                    print(f"         Link: {adat.get('link')}")
+                    print(f"         Munka: {adat.get('munka_neve')}")
 
         # rövid várakozás batch-ek között
         time.sleep(random.uniform(2, 4))
 
-    print(f"📊 Összesen {osszes_mentett} sor mentve az adatbázisba")
+    print(f"\n📊 VÉGEREDMÉNY: {osszes_mentett} sor mentve az adatbázisba")
     return osszes_mentett > 0
 
 # ---------------------------------------------------------
