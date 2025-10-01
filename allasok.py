@@ -537,6 +537,12 @@ VMP Álláskereső eredmény - {LOCATION} ({DISTANCE}km)
     
     email_subject = f"VMP álláskeresés - {len(tenyleg_uj_allasok)} új állás - {LOCATION} {kontroll_status}"
     send_email(email_subject, email_uzenet)
+    
+    # Várakozás a script végén
+    wait_time = random.uniform(20, 25)
+    print(f"\n⏳ Várakozás {wait_time:.1f} másodperc a script végén...")
+    time.sleep(wait_time)
+    print("✅ Script befejezve")
 
 if __name__ == "__main__":
     main()
