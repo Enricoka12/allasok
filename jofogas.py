@@ -347,31 +347,34 @@ def main():
 
     if not all_links:
         print("[warn] Nincsenek linkek — leállok")
-        # küldjünk emailt, hogy valami nem stimmel
         send_email("Jófogás pipeline hibajelzés", "Nem sikerült kinyerni linkeket a találati oldalakról.")
         return
 
     # 4) letöltjük az állásoldalakat
     job_success_files, job_failed_links = download_job_pages(session, all_links)
-    print(f"[info] Sikeres állaps letöltések: {len(job_success_files)}, sikertelen: {len(job_failed_links)}")
+    print(f"[info] Sikeres állás letöltések: {len(job_success_files)}, sikertelen: {len(job_failed_links)}")
 
-    # 5) parse job oldalak
+    # 6) db előzetes lekérés - ELŐREHOZVA, MIELŐTT PARSE-OLNÁNK!
+    db_links_before = db_active_links_for_jofogas(supabase)
+    print(f"[info] DB-ben aktív jofogas linkek (futtatás előtt): {len(db_links_before)}")
+
+    # 5) parse job oldalak - MÓDOSÍTVA!
     parsed_rows = []
     parsed_links = []
     for fpath in job_success_files:
         row = parse_job_file(fpath)
         if row:
+            # ✅ HA MÁR LÉTEZIK A DB-BEN, NE FRISSÍTSÜK A letrehozva MEZŐT
+            if row["link"] in db_links_before:
+                row.pop("letrehozva", None)  # eltávolítjuk, így az upsert nem írja felül
+            
             parsed_rows.append(row)
             parsed_links.append(row["link"])
+    
     print(f"[info] Feldolgozott hirdetések száma (sikeres parse): {len(parsed_rows)}")
-
-    # 6) db előzetes lekérés a meglévő linkekhez (jofogas)
-    db_links_before = db_active_links_for_jofogas(supabase)
-    print(f"[info] DB-ben aktív jofogas linkek (futtatás előtt): {len(db_links_before)}")
 
     # 7) upsert a Supabase-ba
     upsert_resp = supabase_upsert_rows(supabase, parsed_rows)
-    # nem szigorúan ellenőrzünk status_code-ot, mert a supabase-py változhat
     print("[info] Upsert lefutott (ha volt mit feltölteni).")
 
     # 8) új vs meglévő számolás
@@ -400,5 +403,3 @@ def main():
     send_email("Jófogás álláspipeline - összegzés", email_body)
     print("[✓] Pipeline lefuttatva, összegzés elküldve.")
 
-if __name__ == "__main__":
-    main()
