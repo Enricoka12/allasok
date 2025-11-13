@@ -106,18 +106,18 @@ def get_total_pages(session):
     html = safe_request(session, url)
     if not html:
         return 1, None
-    # mentés debug célra
-    with open(os.path.join(SEARCH_DIR, "search_page_1.html"), "w", encoding="utf-8") as f:
-        f.write(html)
+    
+    # NE MENTSÜK EL ITT - a download_search_pages() majd elmenti
+    # (különben kihagyja és nem tölti le újra)
+    
     soup = BeautifulSoup(html, "html.parser")
     last_link = soup.select_one("a.ad-list-pager-item-last")
     if last_link and last_link.get("href"):
         href = last_link["href"]
-        # keressük az o= paramétert
         m = re.search(r"[?&]o=(\d+)", href)
         if m:
             return int(m.group(1)), html
-    # ha nincs last, keressük az összes page-number elemet és vegyük a maxot
+    
     nums = []
     for a in soup.select("a.ad-list-pager-page-number"):
         txt = a.get_text(strip=True)
@@ -129,16 +129,16 @@ def get_total_pages(session):
 
 # ----------------- LÉPÉS 2: TALÁLATI OLDALAK LETÖLTÉSE -----------------
 def download_search_pages(session, total_pages):
-    """Letölti az összes search page-et véletlensorrendben (ha már megvan, kihagyja)"""
+    """Letölti az összes search page-et véletlensorrendben"""
     pages = list(range(1, total_pages + 1))
     random.shuffle(pages)
     downloaded = []
     for p in pages:
         filename = os.path.join(SEARCH_DIR, f"search_page_{p}.html")
-        if os.path.exists(filename):
-            print(f"[skip] Már megvan: {filename}")
-            downloaded.append(filename)
-            continue
+        
+        # GitHub Actions: nincs cache, mindig töltsd le
+        # (ha local futtatáshoz kellene cache, használj ENV változót)
+        
         url = BASE_SEARCH_TEMPLATE.format(page=p)
         print(f"[download] Találati oldal {p}/{total_pages} -> {url}")
         html = safe_request(session, url)
@@ -171,20 +171,17 @@ def extract_links_from_search_pages():
 
 # ----------------- LÉPÉS 4: ÁLLÁSOLDALAK LETÖLTÉSE -----------------
 def download_job_pages(session, links):
-    """Letölti a job oldalak HTML-jeit job_pages mappába - visszaadja a sikeres és sikertelen listákat"""
+    """Letölti a job oldalak HTML-jeit job_pages mappába"""
     success = []
     failed = []
     for i, link in enumerate(links, 1):
-        # fájlnév: utolsó path elem, ha ütközik, indexet teszünk elé
         last = link.rstrip("/").split("/")[-1]
         filename = os.path.join(JOB_DIR, last)
-        # biztosítsuk, hogy .htm vagy .html végződés legyen
         if not filename.lower().endswith(".htm") and not filename.lower().endswith(".html"):
             filename = filename + ".html"
-        if os.path.exists(filename):
-            print(f"[job skip] Már megvan: {filename}")
-            success.append(filename)
-            continue
+        
+        # GitHub Actions: nincs cache, mindig töltsd le
+        
         print(f"[job dl {i}/{len(links)}] {link}")
         html = safe_request(session, link)
         if html:
@@ -196,7 +193,7 @@ def download_job_pages(session, links):
             print(f"[job fail] {link}")
         time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     return success, failed
-
+    
 # ----------------- LÉPÉS 5: PARSING ÁLLÁSOLDALAKBÓL -----------------
 def parse_job_file(path):
     """Kiveszi a __NEXT_DATA__ JSON-ből a product objektumot és előállít egy dict-et a Supabase-hez"""
@@ -402,4 +399,5 @@ def main():
     )
     send_email("Jófogás álláspipeline - összegzés", email_body)
     print("[✓] Pipeline lefuttatva, összegzés elküldve.")
+
 
