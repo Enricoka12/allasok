@@ -358,44 +358,78 @@ def main():
     db_links_before = db_active_links_for_jofogas(supabase)
     print(f"[info] DB-ben aktív jofogas linkek (futtatás előtt): {len(db_links_before)}")
 
-    # 6) parse job oldalak - MÓDOSÍTVA!
-    parsed_rows = []
+    # 6) parse job oldalak - ÚJ és MEGLÉVŐ szétválasztása!
+    new_rows = []
+    update_rows = []
     parsed_links = []
+    
     for fpath in job_success_files:
         row = parse_job_file(fpath)
         if row:
-            # ✅ HA MÁR LÉTEZIK A DB-BEN, NE FRISSÍTSÜK A letrehozva MEZŐT
-            if row["link"] in db_links_before:
-                row.pop("letrehozva", None)  # eltávolítjuk, így az upsert nem írja felül
-            
-            parsed_rows.append(row)
             parsed_links.append(row["link"])
+            
+            if row["link"] in db_links_before:
+                # MEGLÉVŐ rekord - csak a frissítendő mezőket tartjuk meg
+                update_row = {
+                    "link": row["link"],
+                    "munka_neve": row["munka_neve"],
+                    "munka_tipusa": row["munka_tipusa"],
+                    "hely": row["hely"],
+                    "ceg": row["ceg"],
+                    "foglalkoztato_neve": row["foglalkoztato_neve"],
+                    "kepviselo_neve": row["kepviselo_neve"],
+                    "kepviselo_elerhetosegei": row["kepviselo_elerhetosegei"],
+                    "felajanlott_havi_brutto_kereset": row["felajanlott_havi_brutto_kereset"],
+                    "elvart_iskolai_vegzettseg": row["elvart_iskolai_vegzettseg"],
+                    "megjegyzes": row["megjegyzes"],
+                    "email": row["email"],
+                    "utoljara_frissitve": row["utoljara_frissitve"],
+                    "active": row["active"]
+                }
+                update_rows.append(update_row)
+            else:
+                # ÚJ rekord - minden mezővel
+                new_rows.append(row)
     
-    print(f"[info] Feldolgozott hirdetések száma (sikeres parse): {len(parsed_rows)}")
+    print(f"[info] Feldolgozott hirdetések - Új: {len(new_rows)}, Frissítendő: {len(update_rows)}")
 
-    # 7) upsert a Supabase-ba
-    upsert_resp = supabase_upsert_rows(supabase, parsed_rows)
-    print("[info] Upsert lefutott (ha volt mit feltölteni).")
+    # 7) INSERT új rekordok
+    if new_rows:
+        try:
+            supabase.table(TABLE_NAME).insert(new_rows).execute()
+            print(f"[info] {len(new_rows)} új rekord beszúrva")
+        except Exception as e:
+            print(f"[DB hiba] Insert sikertelen: {e}")
 
-    # 8) új vs meglévő számolás
+    # 8) UPDATE meglévő rekordok egyenként
+    if update_rows:
+        success_count = 0
+        for row in update_rows:
+            try:
+                supabase.table(TABLE_NAME).update(row).eq("link", row["link"]).execute()
+                success_count += 1
+            except Exception as e:
+                print(f"[DB hiba] Update sikertelen {row['link']}: {e}")
+        print(f"[info] {success_count}/{len(update_rows)} rekord frissítve")
+
+    # 9) új vs meglévő számolás
     parsed_links_set = set(parsed_links)
     new_links = parsed_links_set - db_links_before
     existing_links = parsed_links_set & db_links_before
     print(f"[info] Új linkek a DB-hez: {len(new_links)}; Már létezett: {len(existing_links)}")
 
-    # 9) inaktiválás (amiket már nem találunk)
+    # 10) inaktiválás (amiket már nem találunk)
     deactivated_count = supabase_deactivate_missing(supabase, parsed_links_set)
     print(f"[info] Inaktivált rekordok száma: {deactivated_count}")
 
-    # 10) email összegzés
+    # 11) email összegzés
     email_body = (
         f"Jófogás pipeline összegzés\n\n"
         f"Találati oldalak száma: {total_pages}\n"
         f"Kinyert linkek: {len(all_links)}\n"
         f"Letöltött állásoldalak (sikeres): {len(job_success_files)}\n"
-        f"Parse-olt hirdetések: {len(parsed_rows)}\n"
-        f"Új rekordok a DB-ben: {len(new_links)}\n"
-        f"Már meglévő frissített rekordok: {len(existing_links)}\n"
+        f"Új rekordok a DB-ben: {len(new_rows)}\n"
+        f"Frissített rekordok: {len(update_rows)}\n"
         f"Inaktivált rekordok (most): {deactivated_count}\n"
         f"Letöltési hibák (állások): {len(job_failed_links)}\n"
         f"\nTimestamp: {datetime.now().strftime('%Y.%m.%d %H:%M')}\n"
@@ -406,4 +440,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
