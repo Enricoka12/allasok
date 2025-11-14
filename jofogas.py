@@ -329,6 +329,40 @@ def supabase_deactivate_missing(supabase, current_links):
 
 
 # ----------------- FŐFUTTATÓ -----------------
+def db_osszes_aktiv_link(supabase):
+    """Visszaadja az ÖSSZES aktív jofogas2 állás linkjét az adatbázisból"""
+    try:
+        res = supabase.table(TABLE_NAME).select("link").eq("szarmazas", "jofogas2").eq("active", True).execute()
+        return set(r["link"] for r in (res.data or []))
+    except Exception as e:
+        print(f"[DB hiba] Nem sikerült lekérni az összes aktív linket: {e}")
+        return set()
+
+
+def frissit_meglevo_allasokat(supabase, linkek):
+    """Frissíti a már létező állások utoljara_frissitve mezőjét"""
+    if not linkek:
+        return 0
+    
+    most = datetime.now().strftime("%Y.%m.%d %H:%M")
+    frissitett = 0
+    
+    for link in linkek:
+        try:
+            supabase.table(TABLE_NAME).update({
+                "utoljara_frissitve": most,
+                "active": True
+            }).eq("link", link).execute()
+            frissitett += 1
+        except Exception as e:
+            print(f"[DB hiba] Frissítés sikertelen ({link}): {e}")
+    
+    if frissitett > 0:
+        print(f"[info] {frissitett} meglévő állás frissítve")
+    
+    return frissitett
+
+
 def main():
     ensure_dirs()
     session = requests.Session()
@@ -350,88 +384,83 @@ def main():
         send_email("Jófogás pipeline hibajelzés", "Nem sikerült kinyerni linkeket a találati oldalakról.")
         return
 
-    # 4) letöltjük az állásoldalakat
-    job_success_files, job_failed_links = download_job_pages(session, all_links)
-    print(f"[info] Sikeres állás letöltések: {len(job_success_files)}, sikertelen: {len(job_failed_links)}")
+    # 4) DB: ÖSSZES aktív jofogas2 link lekérése
+    osszes_aktiv_link = db_osszes_aktiv_link(supabase)
+    print(f"[info] DB-ben ÖSSZES aktív jofogas2 link: {len(osszes_aktiv_link)}")
 
-    # 5) DB előzetes lekérés - ELŐREHOZVA A PARSE ELÉ!
-    db_links_before = db_active_links_for_jofogas(supabase)
-    print(f"[info] DB-ben aktív jofogas linkek (futtatás előtt): {len(db_links_before)}")
-
-    # 6) parse job oldalak - ÚJ és MEGLÉVŐ szétválasztása!
-    new_rows = []
-    update_rows = []
-    parsed_links = []
+    # 5) Szétválogatás: Tényleg új vs Már létező
+    tenyleg_uj_linkek = []
+    mar_letezo_linkek = []
     
+    for link in all_links:
+        if link not in osszes_aktiv_link:
+            tenyleg_uj_linkek.append(link)
+        else:
+            mar_letezo_linkek.append(link)
+    
+    print(f"[info] Tényleg új állások: {len(tenyleg_uj_linkek)}")
+    print(f"[info] Már létező állások: {len(mar_letezo_linkek)}")
+
+    # 6) Meglévő állások frissítése (csak utoljara_frissitve)
+    frissitett_count = frissit_meglevo_allasokat(supabase, mar_letezo_linkek)
+
+    # 7) Csak az ÚJ állások letöltése és parse-olása
+    job_success_files = []
+    job_failed_links = []
+    
+    if tenyleg_uj_linkek:
+        print(f"[info] {len(tenyleg_uj_linkek)} új állásoldal letöltése...")
+        job_success_files, job_failed_links = download_job_pages(session, tenyleg_uj_linkek)
+        print(f"[info] Sikeres letöltések: {len(job_success_files)}, sikertelen: {len(job_failed_links)}")
+    else:
+        print("[info] Nincs új állás, nincs mit letölteni")
+
+    # 8) Parse CSAK az új állásokhoz (teljes mezőlistával, beleértve letrehozva-t)
+    new_rows = []
     for fpath in job_success_files:
         row = parse_job_file(fpath)
         if row:
-            parsed_links.append(row["link"])
-            
-            if row["link"] in db_links_before:
-                # MEGLÉVŐ rekord - csak a frissítendő mezőket tartjuk meg
-                update_row = {
-                    "link": row["link"],
-                    "munka_neve": row["munka_neve"],
-                    "munka_tipusa": row["munka_tipusa"],
-                    "hely": row["hely"],
-                    "ceg": row["ceg"],
-                    "foglalkoztato_neve": row["foglalkoztato_neve"],
-                    "kepviselo_neve": row["kepviselo_neve"],
-                    "kepviselo_elerhetosegei": row["kepviselo_elerhetosegei"],
-                    "felajanlott_havi_brutto_kereset": row["felajanlott_havi_brutto_kereset"],
-                    "elvart_iskolai_vegzettseg": row["elvart_iskolai_vegzettseg"],
-                    "megjegyzes": row["megjegyzes"],
-                    "email": row["email"],
-                    "utoljara_frissitve": row["utoljara_frissitve"],
-                    "active": row["active"]
-                }
-                update_rows.append(update_row)
-            else:
-                # ÚJ rekord - minden mezővel
-                new_rows.append(row)
+            new_rows.append(row)
     
-    print(f"[info] Feldolgozott hirdetések - Új: {len(new_rows)}, Frissítendő: {len(update_rows)}")
+    print(f"[info] Parse-olt új hirdetések: {len(new_rows)}")
 
-    # 7) INSERT új rekordok
+    # 9) INSERT új rekordok (batch-enként)
+    inserted_count = 0
     if new_rows:
-        try:
-            supabase.table(TABLE_NAME).insert(new_rows).execute()
-            print(f"[info] {len(new_rows)} új rekord beszúrva")
-        except Exception as e:
-            print(f"[DB hiba] Insert sikertelen: {e}")
-
-    # 8) UPDATE meglévő rekordok egyenként
-    if update_rows:
-        success_count = 0
-        for row in update_rows:
+        batch_size = 100
+        failed_count = 0
+        
+        for i in range(0, len(new_rows), batch_size):
+            batch = new_rows[i:i+batch_size]
             try:
-                supabase.table(TABLE_NAME).update(row).eq("link", row["link"]).execute()
-                success_count += 1
+                result = supabase.table(TABLE_NAME).insert(batch).execute()
+                inserted_count += len(batch)
+                print(f"[info] Batch {i//batch_size + 1}: {len(batch)} rekord beszúrva")
             except Exception as e:
-                print(f"[DB hiba] Update sikertelen {row['link']}: {e}")
-        print(f"[info] {success_count}/{len(update_rows)} rekord frissítve")
+                failed_count += len(batch)
+                print(f"[DB hiba] Batch {i//batch_size + 1} Insert sikertelen: {e}")
+                print(f"[debug] Első hibás rekord link: {batch[0].get('link', 'N/A')}")
+        
+        print(f"[info] Összesen {inserted_count} új rekord beszúrva, {failed_count} sikertelen")
 
-    # 9) új vs meglévő számolás
-    parsed_links_set = set(parsed_links)
-    new_links = parsed_links_set - db_links_before
-    existing_links = parsed_links_set & db_links_before
-    print(f"[info] Új linkek a DB-hez: {len(new_links)}; Már létezett: {len(existing_links)}")
-
-    # 10) inaktiválás (amiket már nem találunk)
-    deactivated_count = supabase_deactivate_missing(supabase, parsed_links_set)
+    # 10) Inaktiválás (amiket már nem találunk)
+    scrapped_linkek = set(all_links)
+    deactivated_count = supabase_deactivate_missing(supabase, scrapped_linkek)
     print(f"[info] Inaktivált rekordok száma: {deactivated_count}")
 
-    # 11) email összegzés
+    # 11) Email összegzés
     email_body = (
         f"Jófogás pipeline összegzés\n\n"
         f"Találati oldalak száma: {total_pages}\n"
         f"Kinyert linkek: {len(all_links)}\n"
-        f"Letöltött állásoldalak (sikeres): {len(job_success_files)}\n"
-        f"Új rekordok a DB-ben: {len(new_rows)}\n"
-        f"Frissített rekordok: {len(update_rows)}\n"
-        f"Inaktivált rekordok (most): {deactivated_count}\n"
-        f"Letöltési hibák (állások): {len(job_failed_links)}\n"
+        f"Tényleg új állások: {len(tenyleg_uj_linkek)}\n"
+        f"Már létező állások: {len(mar_letezo_linkek)}\n"
+        f"Letöltött új állásoldalak (sikeres): {len(job_success_files)}\n"
+        f"Parse-olt új hirdetések: {len(new_rows)}\n"
+        f"Új rekordok beszúrva a DB-be: {inserted_count}\n"
+        f"Meglévő rekordok frissítve: {frissitett_count}\n"
+        f"Inaktivált rekordok: {deactivated_count}\n"
+        f"Letöltési hibák (új állások): {len(job_failed_links)}\n"
         f"\nTimestamp: {datetime.now().strftime('%Y.%m.%d %H:%M')}\n"
     )
     send_email("Jófogás álláspipeline - összegzés", email_body)
