@@ -329,13 +329,23 @@ def supabase_deactivate_missing(supabase, current_links):
 
 
 # ----------------- FŐFUTTATÓ -----------------
-def db_osszes_aktiv_link(supabase):
-    """Visszaadja az ÖSSZES aktív jofogas2 állás linkjét az adatbázisból"""
+def db_osszes_link(supabase):
+    """Visszaadja az ÖSSZES link-et az adatbázisból (active-tól függetlenül)"""
+    try:
+        res = supabase.table(TABLE_NAME).select("link").execute()
+        return set(r["link"] for r in (res.data or []))
+    except Exception as e:
+        print(f"[DB hiba] Nem sikerült lekérni az összes linket: {e}")
+        return set()
+
+
+def db_aktiv_jofogas_linkek(supabase):
+    """Visszaadja az AKTÍV jofogas2 állás linkjét az adatbázisból (statisztikához)"""
     try:
         res = supabase.table(TABLE_NAME).select("link").eq("szarmazas", "jofogas2").eq("active", True).execute()
         return set(r["link"] for r in (res.data or []))
     except Exception as e:
-        print(f"[DB hiba] Nem sikerült lekérni az összes aktív linket: {e}")
+        print(f"[DB hiba] Nem sikerült lekérni az aktív jofogas linkeket: {e}")
         return set()
 
 
@@ -384,25 +394,34 @@ def main():
         send_email("Jófogás pipeline hibajelzés", "Nem sikerült kinyerni linkeket a találati oldalakról.")
         return
 
-    # 4) DB: ÖSSZES aktív jofogas2 link lekérése
-    osszes_aktiv_link = db_osszes_aktiv_link(supabase)
-    print(f"[info] DB-ben ÖSSZES aktív jofogas2 link: {len(osszes_aktiv_link)}")
+    # 4) DB: ÖSSZES link lekérése (duplikáció elkerülésére)
+    osszes_link = db_osszes_link(supabase)
+    aktiv_jofogas_linkek = db_aktiv_jofogas_linkek(supabase)
+    print(f"[info] DB-ben ÖSSZES link (bármilyen szarmazas/active): {len(osszes_link)}")
+    print(f"[info] DB-ben AKTÍV jofogas2 link: {len(aktiv_jofogas_linkek)}")
 
-    # 5) Szétválogatás: Tényleg új vs Már létező
+    # 5) Szétválogatás: Tényleg új (nincs a DB-ben EGYÁLTALÁN) vs Már létező
     tenyleg_uj_linkek = []
-    mar_letezo_linkek = []
+    mar_letezo_linkek_jofogas = []  # jofogas linkek, amik már bent vannak
+    mar_letezo_linkek_mas = []  # más forrásból származó linkek
     
     for link in all_links:
-        if link not in osszes_aktiv_link:
+        if link not in osszes_link:
+            # TÉNYLEG ÚJ - nincs a DB-ben
             tenyleg_uj_linkek.append(link)
+        elif link in aktiv_jofogas_linkek:
+            # JOFOGAS2, AKTÍV - frissítendő
+            mar_letezo_linkek_jofogas.append(link)
         else:
-            mar_letezo_linkek.append(link)
+            # Más forrásból vagy inaktív jofogas - skip (nem frissítjük)
+            mar_letezo_linkek_mas.append(link)
     
-    print(f"[info] Tényleg új állások: {len(tenyleg_uj_linkek)}")
-    print(f"[info] Már létező állások: {len(mar_letezo_linkek)}")
+    print(f"[info] Tényleg új állások (nincs a DB-ben): {len(tenyleg_uj_linkek)}")
+    print(f"[info] Már létező jofogas2 aktív állások (frissítendő): {len(mar_letezo_linkek_jofogas)}")
+    print(f"[info] Már létező más forrásból (skip): {len(mar_letezo_linkek_mas)}")
 
-    # 6) Meglévő állások frissítése (csak utoljara_frissitve)
-    frissitett_count = frissit_meglevo_allasokat(supabase, mar_letezo_linkek)
+    # 6) Meglévő jofogas2 állások frissítése (csak utoljara_frissitve)
+    frissitett_count = frissit_meglevo_allasokat(supabase, mar_letezo_linkek_jofogas)
 
     # 7) Csak az ÚJ állások letöltése és parse-olása
     job_success_files = []
@@ -453,8 +472,9 @@ def main():
         f"Jófogás pipeline összegzés\n\n"
         f"Találati oldalak száma: {total_pages}\n"
         f"Kinyert linkek: {len(all_links)}\n"
-        f"Tényleg új állások: {len(tenyleg_uj_linkek)}\n"
-        f"Már létező állások: {len(mar_letezo_linkek)}\n"
+        f"Tényleg új állások (nincs a DB-ben): {len(tenyleg_uj_linkek)}\n"
+        f"Már létező jofogas2 aktív (frissítve): {len(mar_letezo_linkek_jofogas)}\n"
+        f"Már létező más forrásból (skip): {len(mar_letezo_linkek_mas)}\n"
         f"Letöltött új állásoldalak (sikeres): {len(job_success_files)}\n"
         f"Parse-olt új hirdetések: {len(new_rows)}\n"
         f"Új rekordok beszúrva a DB-be: {inserted_count}\n"
@@ -469,3 +489,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
