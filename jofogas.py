@@ -63,8 +63,30 @@ def send_email(subject, message):
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
         print("✅ Email elküldve")
-    except Exception as e:
-        print(f"❌ Email hiba: {e}")
+except Exception as e:
+    print(f"[request] Hiba ({attempt}/{retries}) a {url}")
+    print(type(e).__name__)
+    print(e)
+
+    # curl_cffi válasz kiírása
+    if hasattr(e, "response") and e.response is not None:
+        try:
+            print("=" * 80)
+            print("STATUS:", e.response.status_code)
+            print("HEADERS:")
+            print(dict(e.response.headers))
+            print("=" * 80)
+            print(e.response.text[:5000])
+            print("=" * 80)
+        except Exception as ex:
+            print("Response dump hiba:", ex)
+
+    if attempt < retries:
+        time.sleep(backoff + random.random())
+        backoff *= 2
+        continue
+
+    return None
 
 def supabase_client():
     """Supabase kliens létrehozása"""
