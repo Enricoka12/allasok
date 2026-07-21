@@ -5,7 +5,7 @@ import time
 import json
 import random
 import urllib3
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from supabase import create_client
@@ -78,7 +78,7 @@ def safe_request(session, url, retries=RETRY_COUNT):
     backoff = 1
     for attempt in range(1, retries+1):
         try:
-            resp = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT, verify=False)
+            resp = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT, verify=False, impersonate="chrome136")
             if resp.status_code == 429:
                 wait = 5 * attempt + random.random() * 3
                 print(f"[429] Rate limit a {url} - várok {wait:.1f}s majd újrapróbálkozom")
@@ -375,7 +375,7 @@ def frissit_meglevo_allasokat(supabase, linkek):
 
 def main():
     ensure_dirs()
-    session = requests.Session()
+    session = requests.Session(impersonate="chrome136")
     supabase = supabase_client()
 
     # 1) lekérjük a total pages-t
@@ -489,4 +489,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
