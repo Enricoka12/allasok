@@ -18,7 +18,7 @@ from email.mime.multipart import MIMEMultipart
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ----------------- KONFIG (állítsd be környezeti változóban vagy cseréld ki itt) -----------------
-BASE_SEARCH_TEMPLATE = "https://allas.jofogas.hu/magyarorszag/allasajanlat?pf=b&o={page}"
+BASE_SEARCH_TEMPLATE = "https://allas.jofogas.hu/magyarorszag/allasajanlat?o={page}"
 BASE_DOMAIN = "https://allas.jofogas.hu"
 
 # mappák
