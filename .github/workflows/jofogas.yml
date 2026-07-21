@@ -20,9 +20,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install beautifulsoup4 requests supabase python-dotenv typesense aiohttp
+          pip install curl_cffi beautifulsoup4 requests supabase python-dotenv typesense aiohttp 
           pip install pandas numpy  # Opcionális, ha szükséges
-          pip install curl_cffi
 
       - name: Run pipeline
         env:
