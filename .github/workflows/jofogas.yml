@@ -20,7 +20,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install curl_cffi beautifulsoup4 requests supabase python-dotenv typesense aiohttp 
+          pip install playwright curl_cffi beautifulsoup4 requests supabase python-dotenv typesense aiohttp 
+          playwright install chromium
           pip install pandas numpy  # Opcionális, ha szükséges
 
       - name: Run pipeline
