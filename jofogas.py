@@ -58,6 +58,7 @@ def send_email(subject, message):
         msg["To"] = EMAIL_RECIPIENT
         msg["Subject"] = subject
         msg.attach(MIMEText(message, "plain"))
+
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
             server.starttls()
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
@@ -68,25 +69,7 @@ def send_email(subject, message):
     except Exception as e:
         print(f"[email hiba] {e}")
 
-    # curl_cffi válasz kiírása
-    if hasattr(e, "response") and e.response is not None:
-        try:
-            print("=" * 80)
-            print("STATUS:", e.response.status_code)
-            print("HEADERS:")
-            print(dict(e.response.headers))
-            print("=" * 80)
-            print(e.response.text[:5000])
-            print("=" * 80)
-        except Exception as ex:
-            print("Response dump hiba:", ex)
 
-    if attempt < retries:
-        time.sleep(backoff + random.random())
-        backoff *= 2
-        continue
-
-    return None
 
 def supabase_client():
     """Supabase kliens létrehozása"""
@@ -440,17 +423,23 @@ def frissit_meglevo_allasokat(supabase, linkek):
 
 def main():
     ensure_dirs()
-    session = requests.Session(
-    impersonate="chrome136"
-)
 
-# első kapcsolat, cookie szerzés
-print("[init] Jófogás főoldal megnyitása...")
-safe_request(
-    session,
-    "https://allas.jofogas.hu/"
-)
+    session = requests.Session(
+        impersonate="chrome136"
+    )
+
+    # első kapcsolat, cookie szerzés
+    print("[init] Jófogás főoldal megnyitása...")
+    safe_request(
+        session,
+        "https://allas.jofogas.hu/"
+    )
+
     supabase = supabase_client()
+
+    # 1) lekérjük a total pages-t
+    total_pages, _ = get_total_pages(session)
+    print(f"[info] Találati oldalak száma: {total_pages}")
 
     # 1) lekérjük a total pages-t
     total_pages, _ = get_total_pages(session)
