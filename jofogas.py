@@ -12,6 +12,7 @@ from supabase import create_client
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from playwright.sync_api import sync_playwright
 
 # ----- FIGYELMEZTETÉS (SSL kikapcsolás miatt) -----
 # Az oldal SSL ellenőrzésével baj van néha a gépeden — ezért letiltjuk a warningokat.
@@ -78,6 +79,76 @@ def supabase_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def safe_request(session, url, retries=RETRY_COUNT):
+    """
+    Playwright Chromium alapú HTML lekérés
+    """
+
+    for attempt in range(1, retries + 1):
+
+        try:
+            with sync_playwright() as p:
+
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage"
+                    ]
+                )
+
+                context = browser.new_context(
+                    user_agent=random.choice(USER_AGENTS),
+                    locale="hu-HU",
+                    viewport={
+                        "width": 1280,
+                        "height": 900
+                    }
+                )
+
+                page = context.new_page()
+
+                print(f"[PLAYWRIGHT] {url}")
+
+                response = page.goto(
+                    url,
+                    wait_until="networkidle",
+                    timeout=30000
+                )
+
+                if response:
+                    print(
+                        f"[HTTP] {response.status}"
+                    )
+
+                    if response.status >= 400:
+                        print(
+                            page.content()[:1000]
+                        )
+                        browser.close()
+                        return None
+
+
+                # kis várakozás, hogy JS lefusson
+                page.wait_for_timeout(2000)
+
+                html = page.content()
+
+                browser.close()
+
+                return html
+
+
+        except Exception as e:
+
+            print(
+                f"[playwright hiba] "
+                f"({attempt}/{retries}) {url}: {e}"
+            )
+
+            if attempt < retries:
+                time.sleep(3)
+
+    return None
     """
     Jófogás lekérés curl_cffi-vel.
     Cookie + böngésző fejléc kezelés + 403 debug.
