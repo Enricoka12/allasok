@@ -62,11 +62,11 @@ def send_email(subject, message):
             server.starttls()
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
+
         print("✅ Email elküldve")
-except Exception as e:
-    print(f"[request] Hiba ({attempt}/{retries}) a {url}")
-    print(type(e).__name__)
-    print(e)
+
+    except Exception as e:
+        print(f"[email hiba] {e}")
 
     # curl_cffi válasz kiírása
     if hasattr(e, "response") and e.response is not None:
@@ -95,26 +95,69 @@ def supabase_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def safe_request(session, url, retries=RETRY_COUNT):
-    """Requests lekérés verify=False-szal, 429 + hibák kezelése, egyszerű backoff"""
-    headers = {"User-Agent": random.choice(USER_AGENTS)}
-    backoff = 1
-    for attempt in range(1, retries+1):
+    """
+    Jófogás lekérés curl_cffi-vel.
+    Cookie + böngésző fejléc kezelés + 403 debug.
+    """
+
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": "https://allas.jofogas.hu/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+    }
+
+    backoff = 2
+
+    for attempt in range(1, retries + 1):
+
         try:
-            resp = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT, verify=False, impersonate="chrome136")
+            resp = session.get(
+                url,
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
+                verify=False
+            )
+
+            print(f"[HTTP] {resp.status_code} -> {url}")
+
+            if resp.status_code == 403:
+                print("\n========== 403 DEBUG ==========")
+                print("HEADERS:")
+                print(dict(resp.headers))
+
+                print("\nBODY:")
+                print(resp.text[:3000])
+
+                print("===============================\n")
+
+                return None
+
             if resp.status_code == 429:
-                wait = 5 * attempt + random.random() * 3
-                print(f"[429] Rate limit a {url} - várok {wait:.1f}s majd újrapróbálkozom")
+                wait = 10 * attempt
+                print(f"[429] Várakozás {wait}s")
                 time.sleep(wait)
                 continue
+
             resp.raise_for_status()
+
             return resp.text
-        except requests.exceptions.RequestException as e:
-            print(f"[request] Hiba ({attempt}/{retries}) a {url} : {e}")
+
+
+        except Exception as e:
+
+            print(
+                f"[request] Hiba ({attempt}/{retries}) "
+                f"a {url}: {e}"
+            )
+
             if attempt < retries:
                 time.sleep(backoff + random.random())
                 backoff *= 2
-                continue
-            return None
+
     return None
 
 def ensure_dirs():
@@ -397,7 +440,16 @@ def frissit_meglevo_allasokat(supabase, linkek):
 
 def main():
     ensure_dirs()
-    session = requests.Session(impersonate="chrome136")
+    session = requests.Session(
+    impersonate="chrome136"
+)
+
+# első kapcsolat, cookie szerzés
+print("[init] Jófogás főoldal megnyitása...")
+safe_request(
+    session,
+    "https://allas.jofogas.hu/"
+)
     supabase = supabase_client()
 
     # 1) lekérjük a total pages-t
